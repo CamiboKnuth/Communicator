@@ -90,7 +90,7 @@ public class Main extends Application {
 		
 		//calling screen node init
 		callingIpLabel = new Label("Calling:");
-		cancelCallButton = new Button("Cancel Call");
+		cancelCallButton = new Button("Cancel");
 		
 		//receiving call screen init
 		receivingCallFromIP = new Label("Receiving call from:");
@@ -140,13 +140,8 @@ public class Main extends Application {
 			}
 		});
 		
-		
-		
-		//create and start socket thread for reception of calls
-		callHandler = new CallHandlerThread();
-		callHandler.start();
-		
-		//callMaker starts null
+		//callHandler and Maker start null
+		callHandler = null;
 		callMaker = null;
 		
 		//start off at default screen
@@ -167,9 +162,11 @@ public class Main extends Application {
 			@Override
 			public void handle(ActionEvent ev) {
 				try {
+					//close callHandler temporarily
 					callHandler.closeThread();
 					callHandler = null;
 					
+					//show options for making call
 					showMakeCallScreen();
 				} catch (IOException ioex) {
 					ioex.printStackTrace();
@@ -183,9 +180,11 @@ public class Main extends Application {
 			public void handle(ActionEvent ev) {
 				
 				if(isValidIp(ipCallRecipient.getText())) {
+					//start callMaker to contact recipient
 					callMaker = new CallMakerThread(ipCallRecipient.getText());
 					callMaker.start();
 
+					//show call in process screen
 					showCallingScreen();
 				} else {
 					ipCallMessage.setText("Not a valid address, try again:");
@@ -193,10 +192,28 @@ public class Main extends Application {
 			}
 		});
 		
+		cancelCallButton.setOnAction(new EventHandler<ActionEvent>() {
+			@Override
+			public void handle(ActionEvent ev) {
+				//shut down callMaker thread
+				try {
+					callMaker.closeThread();
+				} catch (IOException ioex) {
+					ioex.printStackTrace();
+				}
+				callMaker = null;
+				
+				//return to default screen
+				showDefaultScreen();
+			}
+		});
+		
+		
 		//set action for "accept call" button
 		acceptCallButton.setOnAction(new EventHandler<ActionEvent>() {
 			@Override
 			public void handle(ActionEvent ev) {
+				//accept call and go to in call screen
 				callHandler.acceptCall();
 			}
 		});
@@ -205,12 +222,59 @@ public class Main extends Application {
 		rejectCallButton.setOnAction(new EventHandler<ActionEvent>() {
 			@Override
 			public void handle(ActionEvent ev) {
+				//reject call and return to default screen
 				callHandler.rejectCall();
+			}
+		});
+		
+		endCallButton.setOnAction(new EventHandler<ActionEvent>() {
+			@Override
+			public void handle(ActionEvent ev) {
+				
+				//shut down callMaker thread
+				if(callMaker != null) {
+					try {
+						callMaker.closeThread();
+					} catch (IOException ioex) {
+						ioex.printStackTrace();
+					}
+				}
+				
+				//shut down callHandler thread
+				if(callHandler != null) {
+					try {
+						callHandler.closeThread();
+					} catch (IOException ioex) {
+						ioex.printStackTrace();
+					}
+				}
+				
+				//return to default screen
+				showDefaultScreen();	
 			}
 		});
 	}
 	
 	public static void showDefaultScreen() {
+		
+		//open callHandlerThread if null
+		if(callHandler == null) {
+			//create and start socket thread for reception of calls
+			callHandler = new CallHandlerThread();
+			callHandler.start();
+		}
+		
+		//close any open callMakerThread
+		if(callMaker != null) {
+			try {
+				callMaker.closeThread();
+			} catch (IOException ioex) {
+				ioex.printStackTrace();
+			}
+			callMaker = null;
+		}
+		
+
 		//clear grid
 		gridPane.getChildren().clear();		
 		
@@ -219,6 +283,7 @@ public class Main extends Application {
 	}
 	
 	public static void showMakeCallScreen() {
+		
 		//clear grid
 		gridPane.getChildren().clear();
 		
@@ -242,6 +307,10 @@ public class Main extends Application {
 		gridPane.add(cancelCallButton, 0, 4);		
 	}
 	
+	public static void showRejectCallMessage() {
+		callingIpLabel.setText("Your call was rejected.");
+	}
+	
 	public static void showReceivingScreen(String otherIp) {		
 		//clear grid
 		gridPane.getChildren().clear();
@@ -262,9 +331,11 @@ public class Main extends Application {
 		//TODO: show interactive call screen with other person
 		
 		
-		gridPane.add(backButton, 0, 4);
+		gridPane.add(endCallButton, 0, 4);
 	}
 	
+	
+
 	private static boolean isValidIp(String ipToTest) {
 		//regex for ip address from Regular Expressions Cookbook by Oreilly
 		String ipPattern = "^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.)"
