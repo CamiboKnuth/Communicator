@@ -313,6 +313,7 @@ public class Main extends Application {
 			callMaker = null;
 		}
 		
+		//determine what main screen banner will say
 		messageBanner.setText(message);
 		
 
@@ -374,8 +375,7 @@ public class Main extends Application {
 
 	private static boolean isValidIp(String ipToTest) {
 		//regex for ip address from Regular Expressions Cookbook by Oreilly
-		//String ipPattern = "^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.)"
-		//	+ "{3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$";
+		//along with regex for colon and port number
 			
 		String ipPattern = "^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.)"
 			+ "{3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?):(?:6553[0-5]|655"

@@ -61,6 +61,7 @@ public class CallHandlerThread extends Thread {
 		callFlag = REJECT_FLAG;
 	}
 	
+	//set thread flag to closed, then close streams and sockets
 	public void closeThread() throws IOException {
 		callFlag = CLOSE_FLAG;
 		

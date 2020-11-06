@@ -45,6 +45,7 @@ public class CallMakerThread extends Thread {
 		callFlag = DEFAULT_FLAG;
 	}
 	
+	//set thread flag to closed, then close streams and sockets
 	public void closeThread() throws IOException {
 		callFlag = CLOSE_FLAG;
 		
@@ -65,8 +66,8 @@ public class CallMakerThread extends Thread {
 		}
 	}
 	
-	public boolean isRunning() {
-		return (callFlag != CLOSE_FLAG);
+	public boolean isClosed() {
+		return (callFlag == CLOSE_FLAG);
 	}
 	
 	public void run() {
