@@ -4,21 +4,25 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+
+import java.net.ConnectException;
 import java.net.SocketException;
+import java.net.SocketTimeoutException;
 
 public class CallMakerThread extends Thread {
-	
-	private int bindPort = 9990;
-	
+
+	//flag for determining state of thread
 	private volatile int callFlag;
 
-	//flags for thread state
+	//flag values for thread state
 	private final int DEFAULT_FLAG = 0;
 	private final int CLOSE_FLAG = 1;
 	
-	private String ipAddress;
+	private String recipientAddress;
+	private int recipientPort;
 
 	
 	private Socket sendSocket;
@@ -29,8 +33,10 @@ public class CallMakerThread extends Thread {
 	private DataSender sender;
 
 
-	public CallMakerThread(String ip) {
-		ipAddress = ip;
+	public CallMakerThread(String addressString) {
+		//split address from port
+		recipientAddress = addressString.substring(0,addressString.indexOf(":"));
+		recipientPort = Integer.parseInt(addressString.substring(addressString.indexOf(":") + 1));
 		
 		sendSocket = null;
 		receiver = null;
@@ -69,12 +75,32 @@ public class CallMakerThread extends Thread {
 			try {
 		
 				//wait to connect to other user
-				sendSocket = new Socket(ipAddress, bindPort);
+				sendSocket = new Socket(recipientAddress, recipientPort);
+				
+				//set socket timeout to 3 seconds
+				sendSocket.setSoTimeout(3*1000);
+				
 				inputStream = new DataInputStream(sendSocket.getInputStream());
 				outputStream = null;
 				
 				//wait for other user to accept or reject
 				String in = inputStream.readUTF();
+				
+				try {
+					while(in.equals("WAIT")) {
+						in = inputStream.readUTF();
+					}
+				
+				} catch (SocketTimeoutException stex) {
+					System.out.println("SOCKET TIMEOUT");
+				} catch (ConnectException connex) {
+					System.out.println("CONNECT EXCEPTION");
+				} catch (SocketException sx) {
+					System.out.println("SOCKET EXCEPTION");
+				} catch (IOException ioex) {
+					System.out.println("IOEXCEPTION");
+				}
+				
 				
 				System.out.println("received: " + in);
 				
@@ -87,9 +113,6 @@ public class CallMakerThread extends Thread {
 
 					outputStream = new DataOutputStream(sendSocket.getOutputStream());
 					
-					sendSocket.setSoTimeout(2 * 1000);
-					
-					//handle call
 					//static sender
 					sender = new DataSender(outputStream);
 					//threaded receiver
@@ -106,27 +129,29 @@ public class CallMakerThread extends Thread {
 					
 					//show that call was rejected
 					Platform.runLater(()->{
-						Main.showRejectCallMessage();
+						Main.showDefaultScreen("Call was rejected.");
 					});
+				//if other user didn't respond
+				} else if (in.equals("STOP")) {
+					//show that call timed out
+					Platform.runLater(()->{
+						Main.showDefaultScreen("Call timed out.");
+					});	
+				//if this user cancelled the call
+				} else if (callFlag == CLOSE_FLAG){
+					
+				} else {
+					//show that call failed
+					Platform.runLater(()->{
+						Main.showDefaultScreen("Call failed due to disconnection.");
+					});					
 				}
 				
+				//close this thread
 				closeThread();
 			
-			} catch (SocketException sx) {
-				System.out.println("connection ended");
-				
-				try {
-					closeThread();
-				} catch (IOException ioex) {
-					ioex.printStackTrace();
-				}
-				
-				Platform.runLater(()->{
-					Main.showDefaultScreen();
-				});	
-				
 			} catch (IOException ioex) {
-				ioex.printStackTrace();
+				System.out.println("CALLMAKER EXCEPTION OCCURRED:\n" + ioex.getMessage());
 			}
 		}
 	}

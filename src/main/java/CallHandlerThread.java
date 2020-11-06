@@ -4,27 +4,30 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
-import java.net.BindException;
+import java.lang.InterruptedException;
+
+
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.SocketException;
 
 
 public class CallHandlerThread extends Thread {
 	
-	//private int instanceNumber = 0;
-	private int bindPort = 9990;
-	
+	//flag for determining state of thread
 	private volatile int callFlag;
 
-	//flags for thread state
+	//flag values for thread state
 	private final int DEFAULT_FLAG = 0;
 	private final int ACCEPT_FLAG = 1;
 	private final int REJECT_FLAG = 2;
 	private final int CLOSE_FLAG = 3;
+	private final int TIMEOUT_FLAG = 4;
+	
+	//number of seconds to ring for before cancelling call
+	private final int RING_TIME_SECONDS = 15;
 	
 	private ServerSocket serverSocket;
-	private Socket receiverSocket;
+	private volatile Socket receiverSocket;
 	
 	private DataInputStream inputStream;
 	private DataOutputStream outputStream;
@@ -33,29 +36,21 @@ public class CallHandlerThread extends Thread {
 	private DataSender sender;
 
 
-	public CallHandlerThread() {
+	public CallHandlerThread(ServerSocket socket) {
+		
+		this.serverSocket = socket;
 		
 		receiver = null;
 		sender = null;
+		receiverSocket = null;
 		
-		try {
-			
-			//try to bind serverSocket.
-			//try { 
-				serverSocket = new ServerSocket(bindPort);
-				
-			//if bind fails, bind to next port
-			//} catch (BindException bex) {
-			//	instanceNumber = 1;
-			//	bindPort  = 9991;
-			//	serverSocket = new ServerSocket(bindPort);
-			//}
+		//show address to user
+		Platform.runLater(()->{
+			Main.setDisplayIp("127.0.0.1"
+				+ ":" + Integer.toString(serverSocket.getLocalPort()));
+		});
 		
-			receiverSocket = null;
-			callFlag = DEFAULT_FLAG;
-		} catch (IOException ioex) {
-			ioex.printStackTrace();
-		}
+		callFlag = DEFAULT_FLAG;
 	}
 	
 	public void acceptCall() {
@@ -81,17 +76,13 @@ public class CallHandlerThread extends Thread {
 			sender.closeThread();
 		}
 		
-		if(serverSocket != null) {
-			serverSocket.close();
-		}
-		
 		if(receiverSocket != null) {
 			receiverSocket.close();
 		}
 	}
 	
-	public boolean isRunning() {
-		return (callFlag != CLOSE_FLAG);
+	public boolean isClosed() {
+		return (callFlag == CLOSE_FLAG);
 	}
 	
 	public void run() {
@@ -100,6 +91,7 @@ public class CallHandlerThread extends Thread {
 			try {
 		
 				//wait for connection to be accepted
+				System.out.println("waiting for call");
 				receiverSocket = serverSocket.accept();
 				outputStream = new DataOutputStream(receiverSocket.getOutputStream());
 				inputStream = null;
@@ -110,8 +102,30 @@ public class CallHandlerThread extends Thread {
 				});
 				
 				
-				//wait for user to make a decision about connection
-				while(callFlag == DEFAULT_FLAG);
+				//number of times "WAIT" has been sent
+				int times = 0;
+				//wait for this user to make a decision about connection
+				while(callFlag == DEFAULT_FLAG) {
+					try {
+						//repeatedly send "WAIT" to caller
+						outputStream.writeUTF("WAIT");
+						//hold for 250 milliseconds
+						Thread.sleep(500);
+						times ++;
+						
+						//If too much time passes, timeout
+						if (times > RING_TIME_SECONDS * 2) {
+							callFlag = TIMEOUT_FLAG;
+							//send stop message to other user
+							outputStream.writeUTF("STOP");
+						}
+					//if an exception occurs, timeout
+					} catch (IOException ioex) {
+						callFlag = TIMEOUT_FLAG;
+					} catch (InterruptedException intex) {
+						callFlag = TIMEOUT_FLAG;
+					}
+				}
 				
 				//if this user accepts the call
 				if(callFlag == ACCEPT_FLAG) {
@@ -124,8 +138,6 @@ public class CallHandlerThread extends Thread {
 					
 					inputStream = new DataInputStream(receiverSocket.getInputStream());
 					
-					receiverSocket.setSoTimeout(2 * 1000);
-	
 					//static receiver
 					receiver = new DataReceiver(inputStream);
 					//threaded sender
@@ -135,51 +147,39 @@ public class CallHandlerThread extends Thread {
 					sender.start();
 					
 					//begin receiving in non-threaded loop
-					receiver.receive();
-					
+					receiver.receive();					
 				//if this user rejects the call
 				} else if (callFlag == REJECT_FLAG){
 					outputStream.writeUTF("REJ");
 					
 					//show default screen on main view
 					Platform.runLater(()->{
-						Main.showDefaultScreen();
+						Main.showDefaultScreen("");
 					});
 					
 					callFlag = DEFAULT_FLAG;
+				} else if (callFlag == TIMEOUT_FLAG) {
+					//show default screen on main view
+					Platform.runLater(()->{
+						Main.showDefaultScreen("Call timed out");
+					});
+					
+					callFlag = DEFAULT_FLAG;					
 				}
 				
+				//close streams and receiver socket
 				outputStream.close();
-				receiverSocket.close();
+				
+				if (!receiverSocket.isClosed()) {
+					receiverSocket.close();
+				}
 				
 				if(inputStream != null) {
 					inputStream.close();
 				}
 
-			} catch (SocketException sx) {
-				try {
-					outputStream.close();
-					receiverSocket.close();
-					
-					if(sender != null) {
-						sender.closeThread();
-					}
-					
-					if(inputStream != null) {
-						inputStream.close();
-					}
-				} catch (IOException ioex) {
-					ioex.printStackTrace();
-				}
-				System.out.println("connection ended");
-				
-				Platform.runLater(()->{
-					Main.showDefaultScreen();
-				});	
-				
-				
 			} catch (IOException ioex) {
-				ioex.printStackTrace();
+				System.out.println("CAllHANDLER EXCEPTION OCCURRED:\n" + ioex.getMessage());
 			}
 		}
 	}

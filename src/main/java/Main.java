@@ -15,12 +15,17 @@ import javafx.stage.WindowEvent;
 import java.io.IOException;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.net.BindException;
+import java.net.ServerSocket;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 
 public class Main extends Application {
+	
+	static int bindPort = 9990;
+	static ServerSocket serverSocket;
 	
 	//thread with socket for receiving calls
 	static CallHandlerThread callHandler;
@@ -34,6 +39,7 @@ public class Main extends Application {
 
 
 	//default screen nodes
+	static Label messageBanner;
 	static Label yourIp;
 	static Button makeCallButton;
 	
@@ -79,8 +85,8 @@ public class Main extends Application {
 		backButton = new Button("Back");
 		
 		//default screen nodes init
-		yourIp = new Label("Your ip is: "
-			+ "127.0.0.1" + "\nAwaiting Call...");
+		messageBanner = new Label("");
+		yourIp = new Label("");
 		makeCallButton = new Button("Make Call");
 		
 		//make call screen nodes init
@@ -130,6 +136,11 @@ public class Main extends Application {
 						callMaker.closeThread();
 						callMaker = null;
 					}
+					
+					//close serverSocket
+					if (serverSocket != null) {
+						serverSocket.close();
+					}
 				} catch (IOException ioex) {
 					ioex.printStackTrace();
 				}
@@ -143,9 +154,28 @@ public class Main extends Application {
 		//callHandler and Maker start null
 		callHandler = null;
 		callMaker = null;
+
+		try {
+			//try to bind serverSocket.
+			boolean bound = false;
+			while(!bound) {
+				try { 
+					serverSocket = new ServerSocket(bindPort);
+					bound = true;
+					
+				//if bind fails, bind to next port
+				} catch (BindException bex) {
+					bindPort ++;
+				}
+			}
+		} catch (IOException ioex) {
+			System.out.println("ERROR: SERVER BIND FAILED");
+			ioex.printStackTrace();
+		}
+
 		
 		//start off at default screen
-		showDefaultScreen();
+		showDefaultScreen("");
 	}
 	
 	public static void initButtonActions() {
@@ -153,7 +183,7 @@ public class Main extends Application {
 		backButton.setOnAction(new EventHandler<ActionEvent>() {
 			@Override
 			public void handle(ActionEvent ev) {
-				showDefaultScreen();
+				showDefaultScreen("");
 			}
 		});	
 		
@@ -204,7 +234,7 @@ public class Main extends Application {
 				callMaker = null;
 				
 				//return to default screen
-				showDefaultScreen();
+				showDefaultScreen("Call Cancelled");
 			}
 		});
 		
@@ -230,37 +260,46 @@ public class Main extends Application {
 		endCallButton.setOnAction(new EventHandler<ActionEvent>() {
 			@Override
 			public void handle(ActionEvent ev) {
-				
-				//shut down callMaker thread
-				if(callMaker != null) {
-					try {
-						callMaker.closeThread();
-					} catch (IOException ioex) {
-						ioex.printStackTrace();
-					}
-				}
-				
-				//shut down callHandler thread
-				if(callHandler != null) {
-					try {
-						callHandler.closeThread();
-					} catch (IOException ioex) {
-						ioex.printStackTrace();
-					}
-				}
-				
-				//return to default screen
-				showDefaultScreen();	
+				//carried out in separate method so other threads can call
+				endCallAction();
 			}
 		});
 	}
 	
-	public static void showDefaultScreen() {
+	public static void endCallAction() {
+		//shut down callMaker thread
+		if(callMaker != null) {
+			try {
+				callMaker.closeThread();
+			} catch (IOException ioex) {
+				ioex.printStackTrace();
+			}
+		}
+		
+		//shut down callHandler thread
+		if(callHandler != null) {
+			try {
+				callHandler.closeThread();
+				callHandler = null;
+			} catch (IOException ioex) {
+				ioex.printStackTrace();
+			}
+		}
+		
+		//return to default screen
+		showDefaultScreen("Call Ended");		
+	}
+	
+	public static void setDisplayIp(String address) {
+		yourIp.setText("Your address is: " + address + "\nAwaiting call...");
+	}
+	
+	public static void showDefaultScreen(String message) {
 		
 		//open callHandlerThread if null
 		if(callHandler == null) {
 			//create and start socket thread for reception of calls
-			callHandler = new CallHandlerThread();
+			callHandler = new CallHandlerThread(serverSocket);
 			callHandler.start();
 		}
 		
@@ -274,12 +313,15 @@ public class Main extends Application {
 			callMaker = null;
 		}
 		
+		messageBanner.setText(message);
+		
 
 		//clear grid
 		gridPane.getChildren().clear();		
 		
-		gridPane.add(yourIp, 0, 0);	
-		gridPane.add(makeCallButton, 0, 5);		
+		gridPane.add(messageBanner, 0, 0);
+		gridPane.add(yourIp, 0, 3);	
+		gridPane.add(makeCallButton, 0, 6);		
 	}
 	
 	public static void showMakeCallScreen() {
@@ -300,15 +342,9 @@ public class Main extends Application {
 		
 		callingIpLabel.setText("Calling: " + ipCallRecipient.getText());
 		
-		//TODO: initiate call connection with timeout limit
-		
 		//add buttons and field for making call to grid
 		gridPane.add(callingIpLabel, 0, 0);
 		gridPane.add(cancelCallButton, 0, 4);		
-	}
-	
-	public static void showRejectCallMessage() {
-		callingIpLabel.setText("Your call was rejected.");
 	}
 	
 	public static void showReceivingScreen(String otherIp) {		
@@ -338,8 +374,13 @@ public class Main extends Application {
 
 	private static boolean isValidIp(String ipToTest) {
 		//regex for ip address from Regular Expressions Cookbook by Oreilly
+		//String ipPattern = "^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.)"
+		//	+ "{3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$";
+			
 		String ipPattern = "^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.)"
-			+ "{3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$";
+			+ "{3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?):(?:6553[0-5]|655"
+			+ "[0-2][0-9]|65[0-4][0-9][0-9]|6[0-4][0-9][0-9][0-9]|[0-5][0-9]"
+			+ "[0-9][0-9][0-9]|\\d{0,4})$";
 			
 		//search for regex pattern in ip argument
 		Pattern regex = Pattern.compile(ipPattern);

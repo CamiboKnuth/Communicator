@@ -1,16 +1,22 @@
+import javafx.application.Platform;
+
 import java.io.DataOutputStream;
 import java.io.IOException;
+
+import java.io.EOFException;
+import java.net.SocketException;
 
 
 public class DataSender extends Thread {
 	
+	//flag for determining state of thread
 	private volatile int callFlag;
 	
-	private DataOutputStream outputStream;
-	
-	//flags for thread state
+	//flag values for thread state
 	private final int DEFAULT_FLAG = 0;
 	private final int CLOSE_FLAG = 1;
+	
+	private DataOutputStream outputStream;
 	
 	public DataSender(DataOutputStream stream) {
 		outputStream = stream;
@@ -27,6 +33,7 @@ public class DataSender extends Thread {
 		}	
 	}
 
+	//run sending loop in original thread
 	public void send() {
 		
 		//handle call
@@ -37,12 +44,13 @@ public class DataSender extends Thread {
 				System.out.println("sending: " + "SENDDATA");
 				
 			} catch (IOException ioex) {
-				ioex.printStackTrace();
+				System.out.println("SEND EXCEPTION OCCURRED:\n" + ioex.getMessage());
 				callFlag = CLOSE_FLAG;
 			}	
 		}
 	}
 	
+	//run sending loop in separate thread
 	public void run() {
 		this.send();
 	}
