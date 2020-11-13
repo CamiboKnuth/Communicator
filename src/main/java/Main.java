@@ -2,6 +2,7 @@ import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
+import javafx.geometry.HPos;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
@@ -12,14 +13,18 @@ import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
 
-import java.io.IOException;
-import java.net.Socket;
-import java.net.UnknownHostException;
 import java.net.BindException;
+import java.io.IOException;
 import java.net.ServerSocket;
+import java.net.Socket;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+/*
+TODO: Fix error that occurs when someone is called while on "make call" screen
+TODO: Fix error that occurs when someone is called while on "calling" screen
+*/
 
 
 public class Main extends Application {
@@ -83,29 +88,61 @@ public class Main extends Application {
 
 		//create back button
 		backButton = new Button("Back");
+		backButton.setMinWidth(120);
+		backButton.setMaxWidth(120);
+		backButton.setStyle("-fx-font-size: 1.2em; -fx-font-weight: bold;"
+			+ "-fx-color: #CCCCCC; -fx-focus-color: transparent; -fx-faint-focus-color: transparent;");
+
 		
 		//default screen nodes init
 		messageBanner = new Label("");
+		messageBanner.setStyle("-fx-font-size: 1.5em; -fx-font-weight: bold; -fx-color: #555555;");
 		yourIp = new Label("");
+		yourIp.setStyle("-fx-font-size: 1.5em; -fx-font-weight: bold; -fx-color: #555555;");
 		makeCallButton = new Button("Make Call");
+		makeCallButton.setMinSize(120, 60);
+		makeCallButton.setMaxSize(120, 60);
+		makeCallButton.setStyle("-fx-font-size: 1.5em; -fx-font-weight: bold;"
+			+ "-fx-color: #CCCCCC; -fx-focus-color: black; -fx-faint-focus-color: transparent;");
+	
 		
 		//make call screen nodes init
-		callButton = new Button("Call");
-		ipCallMessage = new Label("Enter ip address to call:");
+		ipCallMessage = new Label("Enter number to call:");
+		ipCallMessage.setStyle("-fx-font-size: 1.5em; -fx-font-weight: bold; -fx-color: #555555;");
 		ipCallRecipient = new TextField();
+		ipCallRecipient.setPrefWidth(180);
+		ipCallRecipient.setMaxWidth(180);
+		ipCallRecipient.setStyle("-fx-font-size: 1.2em; -fx-font-weight: bold; -fx-color: #555555;");
+		callButton = new Button("Call");
+		callButton.setMinSize(120, 60);
+		callButton.setMaxSize(120, 60);
+		callButton.setStyle("-fx-font-size: 1.5em; -fx-font-weight: bold;"
+			+ "-fx-color: #CCCCCC; -fx-focus-color: transparent; -fx-faint-focus-color: transparent;");
+
 		
 		//calling screen node init
 		callingIpLabel = new Label("Calling:");
+		callingIpLabel.setStyle("-fx-font-size: 1.5em; -fx-font-weight: bold; -fx-color: #555555;");
 		cancelCallButton = new Button("Cancel");
+		cancelCallButton.setStyle("-fx-font-size: 1.5em; -fx-font-weight: bold;"
+			+ "-fx-color: #CCCCCC; -fx-focus-color: transparent; -fx-faint-focus-color: transparent;");
 		
 		//receiving call screen init
 		receivingCallFromIP = new Label("Receiving call from:");
+		receivingCallFromIP.setStyle("-fx-font-size: 1.5em; -fx-font-weight: bold; -fx-color: #555555;");
 		acceptCallButton = new Button("Accept Call");
+		acceptCallButton.setStyle("-fx-font-size: 1.3em; -fx-font-weight: bold;"
+			+ "-fx-color: #CCCCCC; -fx-focus-color: transparent; -fx-faint-focus-color: transparent;");
 		rejectCallButton = new Button("Reject Call");
+		rejectCallButton.setStyle("-fx-font-size: 1.3em; -fx-font-weight: bold;"
+			+ "-fx-color: #CCCCCC; -fx-focus-color: transparent; -fx-faint-focus-color: transparent;");
 		
 		//in call node init
 		inCallWithIp = new Label("Currently in call with:");
-		endCallButton = new Button("End Call");	
+		inCallWithIp.setStyle("-fx-font-size: 1.5em; -fx-font-weight: bold; -fx-color: #555555;");
+		endCallButton = new Button("End Call");
+		endCallButton.setStyle("-fx-font-size: 1.3em; -fx-font-weight: bold;"
+			+ "-fx-color: #CCCCCC; -fx-focus-color: transparent; -fx-faint-focus-color: transparent;");
 		
 		
 		//set actions for the buttons
@@ -114,7 +151,7 @@ public class Main extends Application {
 		//add grid to base of scene
 		base.getChildren().add(gridPane);
 		//create scene with addon, width, height
-		Scene scene = new Scene(base, 500, 500);
+		Scene scene = new Scene(base, 400, 600);
 		
 		//set and show the scene
 		stage.setScene(scene);
@@ -217,7 +254,7 @@ public class Main extends Application {
 					//show call in process screen
 					showCallingScreen();
 				} else {
-					ipCallMessage.setText("Not a valid address, try again:");
+					ipCallMessage.setText("Not a valid number, try again:");
 				}
 			}
 		});
@@ -291,7 +328,7 @@ public class Main extends Application {
 	}
 	
 	public static void setDisplayIp(String address) {
-		yourIp.setText("Your address is: " + address + "\nAwaiting call...");
+		yourIp.setText("Your number is:\n" + address + "\n\nAwaiting call...");
 	}
 	
 	public static void showDefaultScreen(String message) {
@@ -321,8 +358,13 @@ public class Main extends Application {
 		gridPane.getChildren().clear();		
 		
 		gridPane.add(messageBanner, 0, 0);
+		gridPane.setHalignment(messageBanner, HPos.CENTER);
+		
 		gridPane.add(yourIp, 0, 3);	
-		gridPane.add(makeCallButton, 0, 6);		
+		gridPane.setHalignment(yourIp, HPos.CENTER);
+		
+		gridPane.add(makeCallButton, 0, 10);
+		gridPane.setHalignment(makeCallButton, HPos.CENTER);
 	}
 	
 	public static void showMakeCallScreen() {
@@ -330,11 +372,21 @@ public class Main extends Application {
 		//clear grid
 		gridPane.getChildren().clear();
 		
+		ipCallMessage.setText("Enter number to call:");
+		
 		//add buttons and field for making call to grid
 		gridPane.add(ipCallMessage, 0, 0);
+		gridPane.setHalignment(ipCallMessage, HPos.CENTER);
+		
+		ipCallRecipient.clear();
 		gridPane.add(ipCallRecipient, 0, 1);
-		gridPane.add(callButton, 1, 1);
-		gridPane.add(backButton, 0, 4);
+		gridPane.setHalignment(ipCallRecipient, HPos.CENTER);
+		
+		gridPane.add(callButton, 0, 3);
+		gridPane.setHalignment(callButton, HPos.CENTER);
+		
+		gridPane.add(backButton, 0, 10);
+		gridPane.setHalignment(backButton, HPos.CENTER);
 	}
 	
 	public static void showCallingScreen() {
@@ -345,30 +397,42 @@ public class Main extends Application {
 		
 		//add buttons and field for making call to grid
 		gridPane.add(callingIpLabel, 0, 0);
-		gridPane.add(cancelCallButton, 0, 4);		
+		gridPane.setHalignment(callingIpLabel, HPos.CENTER);
+		
+		gridPane.add(cancelCallButton, 0, 4);
+		gridPane.setHalignment(cancelCallButton, HPos.CENTER);
 	}
 	
 	public static void showReceivingScreen(String otherIp) {		
 		//clear grid
 		gridPane.getChildren().clear();
 		
+		otherIp = otherIp.substring(1,otherIp.indexOf(':'));
+		
 		receivingCallFromIP.setText("Receiving call from: " + otherIp);
 		
 		//add buttons for accepting and rejecting calls
 		gridPane.add(receivingCallFromIP, 0, 0);
-		gridPane.add(acceptCallButton, 1, 0);
-		gridPane.add(rejectCallButton, 1, 1);			
+		gridPane.setHalignment(receivingCallFromIP, HPos.CENTER);
+		
+		gridPane.add(acceptCallButton, 0, 1);
+		gridPane.setHalignment(acceptCallButton, HPos.CENTER);
+		
+		gridPane.add(rejectCallButton, 0, 2);
+		gridPane.setHalignment(rejectCallButton, HPos.CENTER);		
 	}
 	
 	public static void showInCallScreen(String otherIp) {
 		//clear grid
 		gridPane.getChildren().clear();
 		
-
-		//TODO: show interactive call screen with other person
+		otherIp = otherIp.substring(1,otherIp.indexOf(':'));
 		
+		inCallWithIp.setText("Currently in call with: \n" + otherIp);
 		
+		gridPane.add(inCallWithIp, 0, 0);
 		gridPane.add(endCallButton, 0, 4);
+		gridPane.setHalignment(endCallButton, HPos.CENTER);	
 	}
 	
 	
@@ -376,7 +440,6 @@ public class Main extends Application {
 	private static boolean isValidIp(String ipToTest) {
 		//regex for ip address from Regular Expressions Cookbook by Oreilly
 		//along with regex for colon and port number
-			
 		String ipPattern = "^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.)"
 			+ "{3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?):(?:6553[0-5]|655"
 			+ "[0-2][0-9]|65[0-4][0-9][0-9]|6[0-4][0-9][0-9][0-9]|[0-5][0-9]"

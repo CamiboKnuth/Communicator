@@ -7,8 +7,10 @@ import java.io.IOException;
 import java.lang.InterruptedException;
 
 
+import java.net.Inet4Address;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.UnknownHostException;
 
 
 public class CallHandlerThread extends Thread {
@@ -44,9 +46,19 @@ public class CallHandlerThread extends Thread {
 		sender = null;
 		receiverSocket = null;
 		
+		String ip = "127.0.0.1";
+		
+		try {
+			ip = Inet4Address.getLocalHost().getHostAddress();
+		} catch (UnknownHostException uhex) {
+			uhex.printStackTrace();
+		}
+		
+		final String finalIp = ip;
+		
 		//show address to user
 		Platform.runLater(()->{
-			Main.setDisplayIp("127.0.0.1"
+			Main.setDisplayIp(finalIp
 				+ ":" + Integer.toString(serverSocket.getLocalPort()));
 		});
 		

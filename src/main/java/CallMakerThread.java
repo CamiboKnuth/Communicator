@@ -151,6 +151,15 @@ public class CallMakerThread extends Thread {
 				//close this thread
 				closeThread();
 			
+			} catch (ConnectException conex) {
+				System.out.println("CALLMAKER EXCEPTION OCCURRED:\n" + conex.getMessage());
+				
+				Platform.runLater(()->{
+					Main.showDefaultScreen("Call failed: connection not made.");
+				});
+				
+				callFlag = CLOSE_FLAG;
+
 			} catch (IOException ioex) {
 				System.out.println("CALLMAKER EXCEPTION OCCURRED:\n" + ioex.getMessage());
 			}
