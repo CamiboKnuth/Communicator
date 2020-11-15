@@ -66,20 +66,17 @@ public class CallMakerThread extends Thread {
 		}
 	}
 	
-	public boolean isClosed() {
-		return (callFlag == CLOSE_FLAG);
-	}
-	
 	public void run() {
 		
+		//loop until closed
 		while(callFlag != CLOSE_FLAG) {
 			try {
 		
 				//wait to connect to other user
 				sendSocket = new Socket(recipientAddress, recipientPort);
 				
-				//set socket timeout to 3 seconds
-				sendSocket.setSoTimeout(3*1000);
+				//set socket timeout to 2 seconds
+				sendSocket.setSoTimeout(2*1000);
 				
 				inputStream = new DataInputStream(sendSocket.getInputStream());
 				outputStream = null;
@@ -152,13 +149,15 @@ public class CallMakerThread extends Thread {
 				closeThread();
 			
 			} catch (ConnectException conex) {
-				System.out.println("CALLMAKER EXCEPTION OCCURRED:\n" + conex.getMessage());
-				
-				Platform.runLater(()->{
-					Main.showDefaultScreen("Call failed: connection not made.");
-				});
-				
-				callFlag = CLOSE_FLAG;
+				if(callFlag != CLOSE_FLAG) {
+					System.out.println("CALLMAKER EXCEPTION OCCURRED:\n" + conex.getMessage());
+					
+					Platform.runLater(()->{
+						Main.showDefaultScreen("Call failed: connection not made.");
+					});
+					
+					callFlag = CLOSE_FLAG;
+				}
 
 			} catch (IOException ioex) {
 				System.out.println("CALLMAKER EXCEPTION OCCURRED:\n" + ioex.getMessage());

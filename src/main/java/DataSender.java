@@ -45,7 +45,7 @@ public class DataSender extends Thread {
 		}
 	}
 
-	//set call flag to closed and close stream
+	//set call flag to closed and close dataline
 	public void closeThread() {
 		callFlag = CLOSE_FLAG;
 		

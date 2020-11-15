@@ -45,7 +45,7 @@ public class DataReceiver extends Thread {
 		}
 	}
 
-	//set call flag to closed and close stream and dataline
+	//set call flag to closed and close dataline
 	public void closeThread() {
 		callFlag = CLOSE_FLAG;
 		
