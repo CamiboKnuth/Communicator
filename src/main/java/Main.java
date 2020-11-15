@@ -21,7 +21,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /*
-TODO: Combine default and make call screens?
 TODO: Use UDP instead of TCP? Use socket timeout to end?
 TODO: Encryption?
 TODO: Video, change scene size?
@@ -208,6 +207,8 @@ public class Main extends Application {
 	}
 	
 	public static void initButtonActions() {
+		
+/*
 		//set action for "back" button
 		backButton.setOnAction(new EventHandler<ActionEvent>() {
 			@Override
@@ -215,7 +216,8 @@ public class Main extends Application {
 				showDefaultScreen("");
 			}
 		});	
-		
+	
+
 		//set action for "make call" button
 		makeCallButton.setOnAction(new EventHandler<ActionEvent>() {
 			@Override
@@ -232,11 +234,13 @@ public class Main extends Application {
 				}
 			}
 		});
+*/
 		
 		//set action for "call" button
 		callButton.setOnAction(new EventHandler<ActionEvent>() {
 			@Override
 			public void handle(ActionEvent ev) {
+				
 				//get recipient number from user text field
 				String recipient = ipCallRecipient.getText();
 				
@@ -248,12 +252,23 @@ public class Main extends Application {
 					
 					//if call recipient is not this instance
 					if (!IpTools.isOwnAddress(recipientAddress)) {
-						//start callMaker to contact recipient
-						callMaker = new CallMakerThread(recipientAddress);
-						callMaker.start();
+						
+						try {
+							//close callHandler temporarily
+							callHandler.closeThread();
+							callHandler = null;
+							
+							//start callMaker to contact recipient
+							callMaker = new CallMakerThread(recipientAddress);
+							callMaker.start();
 
-						//show call in process screen
-						showCallingScreen();
+							//show call in process screen
+							showCallingScreen();
+
+						} catch (IOException ioex) {
+							ioex.printStackTrace();
+							showDefaultScreen("Call Failed.");
+						}
 					} else {
 						ipCallMessage.setText("Cannot call yourself, try again:");
 					}
@@ -263,6 +278,7 @@ public class Main extends Application {
 			}
 		});
 		
+		//set action for "cancel" button
 		cancelCallButton.setOnAction(new EventHandler<ActionEvent>() {
 			@Override
 			public void handle(ActionEvent ev) {
@@ -306,6 +322,7 @@ public class Main extends Application {
 			}
 		});
 		
+		//set action for "end call" button
 		endCallButton.setOnAction(new EventHandler<ActionEvent>() {
 			@Override
 			public void handle(ActionEvent ev) {
@@ -372,6 +389,7 @@ public class Main extends Application {
 		//clear grid
 		gridPane.getChildren().clear();		
 		
+
 		//add default screen elements to center of screen
 		gridPane.add(messageBanner, 0, 0);
 		gridPane.setHalignment(messageBanner, HPos.CENTER);
@@ -379,10 +397,24 @@ public class Main extends Application {
 		gridPane.add(yourIp, 0, 3);	
 		gridPane.setHalignment(yourIp, HPos.CENTER);
 		
-		gridPane.add(makeCallButton, 0, 10);
-		gridPane.setHalignment(makeCallButton, HPos.CENTER);
+		//gridPane.add(makeCallButton, 0, 10);
+		//gridPane.setHalignment(makeCallButton, HPos.CENTER);
+		
+		ipCallMessage.setText("Enter number to call:");
+		
+		//add call making screen elements to center of screen
+		gridPane.add(ipCallMessage, 0, 10);
+		gridPane.setHalignment(ipCallMessage, HPos.CENTER);
+		
+		ipCallRecipient.clear();
+		gridPane.add(ipCallRecipient, 0, 11);
+		gridPane.setHalignment(ipCallRecipient, HPos.CENTER);
+		
+		gridPane.add(callButton, 0, 13);
+		gridPane.setHalignment(callButton, HPos.CENTER);
 	}
 	
+	/*
 	public static void showMakeCallScreen() {
 		
 		//clear grid
@@ -391,19 +423,20 @@ public class Main extends Application {
 		ipCallMessage.setText("Enter number to call:");
 		
 		//add call making screen elements to center of screen
-		gridPane.add(ipCallMessage, 0, 0);
+		gridPane.add(ipCallMessage, 0, 10);
 		gridPane.setHalignment(ipCallMessage, HPos.CENTER);
 		
 		ipCallRecipient.clear();
-		gridPane.add(ipCallRecipient, 0, 1);
+		gridPane.add(ipCallRecipient, 0, 11);
 		gridPane.setHalignment(ipCallRecipient, HPos.CENTER);
 		
-		gridPane.add(callButton, 0, 3);
+		gridPane.add(callButton, 0, 13);
 		gridPane.setHalignment(callButton, HPos.CENTER);
 		
-		gridPane.add(backButton, 0, 10);
-		gridPane.setHalignment(backButton, HPos.CENTER);
+		//gridPane.add(backButton, 0, 10);
+		//gridPane.setHalignment(backButton, HPos.CENTER);
 	}
+	*/
 	
 	public static void showCallingScreen() {
 		//clear grid
