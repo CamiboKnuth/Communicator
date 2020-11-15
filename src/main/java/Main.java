@@ -15,15 +15,12 @@ import javafx.stage.WindowEvent;
 
 import java.io.IOException;
 
-import java.net.Inet4Address;
-import java.net.UnknownHostException;
+import java.net.InetSocketAddress;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /*
-TODO: Determine if first or second instance?
-TODO: User regular number rather than IP?
 TODO: Combine default and make call screens?
 TODO: Use UDP instead of TCP? Use socket timeout to end?
 TODO: Encryption?
@@ -33,7 +30,12 @@ TODO: Video, change scene size?
 
 public class Main extends Application {
 	
-	static int bindPort = 9990;
+	//starting point for binding server socket
+	final static int BASE_PORT = 9980;
+	
+	//actual value to which server socket will be bound
+	static int bindPort;
+	
 	
 	//thread with socket for receiving calls
 	static CallHandlerThread callHandler;
@@ -70,7 +72,7 @@ public class Main extends Application {
 	static Button endCallButton;
 
 
-	public static void main(String[] args) {
+	public static void main(String[] args) {		
 		launch(args);
 	}
 	
@@ -235,11 +237,19 @@ public class Main extends Application {
 		callButton.setOnAction(new EventHandler<ActionEvent>() {
 			@Override
 			public void handle(ActionEvent ev) {
+				//get recipient number from user text field
+				String recipient = ipCallRecipient.getText();
 				
-				if(isValidIp(ipCallRecipient.getText())) {
-					if (!isOwnAddress(ipCallRecipient.getText())) {
+				if(IpTools.isValidNumber(recipient)) {
+
+					//convert number to address
+					InetSocketAddress recipientAddress =
+						IpTools.numberToInetSocketAddress(recipient);
+					
+					//if call recipient is not this instance
+					if (!IpTools.isOwnAddress(recipientAddress)) {
 						//start callMaker to contact recipient
-						callMaker = new CallMakerThread(ipCallRecipient.getText());
+						callMaker = new CallMakerThread(recipientAddress);
 						callMaker.start();
 
 						//show call in process screen
@@ -330,8 +340,11 @@ public class Main extends Application {
 	}
 	
 	public static void setDisplayIp(String address) {
+		
+		String myNumber = IpTools.addressAndPortToNumber(address, bindPort);
+		
 		//Indicate ip to user
-		yourIp.setText("Your number is:\n" + address + "\n\nAwaiting call...");
+		yourIp.setText("Your number is:\n" + myNumber + "\n\nAwaiting call...");
 	}
 	
 	public static void showDefaultScreen(String message) {
@@ -406,14 +419,22 @@ public class Main extends Application {
 		gridPane.setHalignment(cancelCallButton, HPos.CENTER);
 	}
 	
-	public static void showReceivingScreen(String otherIp) {		
+	public static void showReceivingScreen(String otherIp) {
+		//get port as string
+		String stringPort = otherIp.substring(otherIp.indexOf(':') + 1);
+
+		//separate IP from initial slash character and port number
+		otherIp = otherIp.substring(1,otherIp.indexOf(':'));
+		int port = Integer.valueOf(stringPort);
+		
+		//convert ip and port to number
+		String otherNum = IpTools.addressAndPortToNumber(otherIp, port);
+
+		
 		//clear grid
 		gridPane.getChildren().clear();
 		
-		//separate IP from initial slash character and port number
-		otherIp = otherIp.substring(1,otherIp.indexOf(':'));
-		
-		receivingCallFromIP.setText("Receiving call from: " + otherIp);
+		receivingCallFromIP.setText("Receiving call from: " + otherNum);
 		
 		//add receiving call screen elements to center of screen
 		gridPane.add(receivingCallFromIP, 0, 0);
@@ -427,62 +448,26 @@ public class Main extends Application {
 	}
 	
 	public static void showInCallScreen(String otherIp) {
+		//get port as string
+		String stringPort = otherIp.substring(otherIp.indexOf(':') + 1);
+
+		//separate IP from initial slash character and port number
+		otherIp = otherIp.substring(1,otherIp.indexOf(':'));
+		int port = Integer.valueOf(stringPort);
+		
+		//convert ip and port to number
+		String otherNum = IpTools.addressAndPortToNumber(otherIp, port);
+		
+		
 		//clear grid
 		gridPane.getChildren().clear();
 		
-		//separate IP from initial slash character and port number
-		otherIp = otherIp.substring(1,otherIp.indexOf(':'));
-		
-		inCallWithIp.setText("Currently in call with: \n" + otherIp);
+		inCallWithIp.setText("Currently in call with: \n" + otherNum);
 		
 		//add in call screen elements to center of screen
 		gridPane.add(inCallWithIp, 0, 0);
 		gridPane.setHalignment(inCallWithIp, HPos.CENTER);	
 		gridPane.add(endCallButton, 0, 4);
 		gridPane.setHalignment(endCallButton, HPos.CENTER);	
-	}
-	
-	private static boolean isValidIp(String ipToTest) {
-		//regex for ip address from Regular Expressions Cookbook by Oreilly
-		//along with regex for colon and port number
-		String ipPattern = "^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.)"
-			+ "{3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?):(?:6553[0-5]|655"
-			+ "[0-2][0-9]|65[0-4][0-9][0-9]|6[0-4][0-9][0-9][0-9]|[0-5][0-9]"
-			+ "[0-9][0-9][0-9]|\\d{0,4})$";
-			
-		//search for regex pattern in ip argument
-		Pattern regex = Pattern.compile(ipPattern);
-		Matcher matcher = regex.matcher(ipToTest);
-		
-		return matcher.find();
-	}
-	
-	private static boolean isOwnAddress(String ipToTest) {
-		
-		boolean isOwn = false;
-		
-		//split ip and port into two parts
-		String[] items = ipToTest.split(":");
-		
-		String thisHost = "";
-		
-		//try to set thisHost to the ip address of the local system
-		try {
-			thisHost = Inet4Address.getLocalHost().getHostAddress();
-		} catch (UnknownHostException uhex) {
-			System.out.println("LOCALHOST ERROR: " + uhex.getMessage());
-		}
-	
-		//If ip is this host's IP
-		if (items[0].equals(thisHost) || items[0].equals("127.0.0.1")
-		|| items[0].equals("localhost")) {
-
-			//if port is the port to which this instance is bound:
-			if (items[1].equals(Integer.toString(bindPort))) {
-				isOwn = true;
-			}
-		}
-		
-		return isOwn;
 	}
 }

@@ -4,11 +4,11 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
+import java.net.ConnectException;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-
-import java.net.ConnectException;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 
@@ -33,10 +33,10 @@ public class CallMakerThread extends Thread {
 	private DataSender sender;
 
 
-	public CallMakerThread(String addressString) {
-		//split address from port
-		recipientAddress = addressString.substring(0,addressString.indexOf(":"));
-		recipientPort = Integer.parseInt(addressString.substring(addressString.indexOf(":") + 1));
+	public CallMakerThread(InetSocketAddress address) {
+
+		recipientAddress = address.getAddress().getHostAddress();
+		recipientPort = address.getPort();
 		
 		sendSocket = null;
 		receiver = null;
@@ -73,7 +73,11 @@ public class CallMakerThread extends Thread {
 			try {
 		
 				//wait to connect to other user
-				sendSocket = new Socket(recipientAddress, recipientPort);
+				sendSocket = new Socket(
+					recipientAddress,
+					recipientPort,
+					InetAddress.getLocalHost(),
+					Main.bindPort);
 				
 				//set socket timeout to 2 seconds
 				sendSocket.setSoTimeout(2*1000);
@@ -106,7 +110,8 @@ public class CallMakerThread extends Thread {
 				if(in.equals("ACC")) {					
 					//show in call screen on main view
 					Platform.runLater(()->{
-						Main.showInCallScreen(sendSocket.getRemoteSocketAddress().toString());
+						Main.showInCallScreen(
+							sendSocket.getRemoteSocketAddress().toString());
 					});	
 
 					outputStream = new DataOutputStream(sendSocket.getOutputStream());
@@ -148,9 +153,9 @@ public class CallMakerThread extends Thread {
 				//close this thread
 				closeThread();
 			
-			} catch (ConnectException conex) {
+			} catch (IOException ioex) {
 				if(callFlag != CLOSE_FLAG) {
-					System.out.println("CALLMAKER EXCEPTION OCCURRED:\n" + conex.getMessage());
+					System.out.println("CALLMAKER EXCEPTION OCCURRED:\n" + ioex.getMessage());
 					
 					Platform.runLater(()->{
 						Main.showDefaultScreen("Call failed: connection not made.");
@@ -158,9 +163,6 @@ public class CallMakerThread extends Thread {
 					
 					callFlag = CLOSE_FLAG;
 				}
-
-			} catch (IOException ioex) {
-				System.out.println("CALLMAKER EXCEPTION OCCURRED:\n" + ioex.getMessage());
 			}
 		}
 	}

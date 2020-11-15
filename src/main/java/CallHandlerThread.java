@@ -41,47 +41,62 @@ public class CallHandlerThread extends Thread {
 
 	public CallHandlerThread() {
 		
+		boolean bound = false;
+		
 		try {
-			//try to bind serverSocket.
-			boolean bound = false;
-			//loop until bind succeeds
-			while(!bound) {
+			//start binding attempts at base port
+			Main.bindPort = Main.BASE_PORT;
+
+			//loop until bound or if attempts surpass 16
+			while(!bound && Main.bindPort < Main.BASE_PORT + 16) {
+				//try to bind serverSocket.
 				try { 
 					serverSocket = new ServerSocket(Main.bindPort);
 					bound = true;
-					
+
 				//if bind fails, bind to next port
 				} catch (BindException bex) {
 					Main.bindPort ++;
 				}
 			}
 		} catch (IOException ioex) {
-			System.out.println("ERROR: SERVER BIND FAILED");
 			ioex.printStackTrace();
 		}
 		
-		receiver = null;
-		sender = null;
-		receiverSocket = null;
-		
-		//local system ip to be indicated to user
-		String ip = "127.0.0.1";
-		try {
-			ip = Inet4Address.getLocalHost().getHostAddress();
-		} catch (UnknownHostException uhex) {
-			uhex.printStackTrace();
+		//if server bind success
+		if (bound) {
+			receiver = null;
+			sender = null;
+			receiverSocket = null;
+			
+			//local system ip to be indicated to user
+			String ip = "127.0.0.1";
+			try {
+				ip = Inet4Address.getLocalHost().getHostAddress();
+			} catch (UnknownHostException uhex) {
+				uhex.printStackTrace();
+			}
+			
+			//string must be final to be used in lambda expression below
+			final String finalIp = ip;
+			
+			//show address to user
+			Platform.runLater(()->{
+				Main.setDisplayIp(finalIp);
+			});
+			
+			callFlag = DEFAULT_FLAG;
+	
+		//if server bind failed
+		} else {
+			System.out.println("ERROR: SERVER BIND FAILED,"
+				+ " CLOSE OTHER INSTANCES OF PROGRAM");
+			
+			//indicate that no dedicated port has been found
+			Main.bindPort = -1;
+				
+			callFlag = CLOSE_FLAG;
 		}
-		
-		//string must be final to be used in lambda expression below
-		final String finalIp = ip;
-		
-		//show address to user
-		Platform.runLater(()->{
-			Main.setDisplayIp(finalIp
-				+ ":" + Integer.toString(serverSocket.getLocalPort()));
-		});
-		
-		callFlag = DEFAULT_FLAG;
 	}
 	
 	public void acceptCall() {
@@ -136,7 +151,8 @@ public class CallHandlerThread extends Thread {
 					
 					//show options to user
 					Platform.runLater(()->{
-						Main.showReceivingScreen(receiverSocket.getRemoteSocketAddress().toString());
+						Main.showReceivingScreen(
+							receiverSocket.getRemoteSocketAddress().toString());
 					});
 				//if flag is not default after accepting from serverSocket, error has occured
 				} else {
@@ -175,7 +191,8 @@ public class CallHandlerThread extends Thread {
 					
 					//show in call screen on main view
 					Platform.runLater(()->{
-						Main.showInCallScreen(receiverSocket.getRemoteSocketAddress().toString());
+						Main.showInCallScreen(
+							receiverSocket.getRemoteSocketAddress().toString());
 					});
 					
 					inputStream = new DataInputStream(receiverSocket.getInputStream());
