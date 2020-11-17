@@ -108,7 +108,7 @@ public class IpTools {
 		return dashAdder.toString();		
 	}
 	
-	public static InetSocketAddress numberToInetSocketAddress(String num) {
+	public static InetSocketAddress numberToInetSocketAddress(String num, int portIncrement) {
 		//remove 3 dashes from number
 		StringBuilder dashRemover = new StringBuilder(num);
 		dashRemover.deleteCharAt(9);
@@ -149,8 +149,9 @@ public class IpTools {
 		int port = ((int) binToDec(instanceString)) + Main.BASE_PORT;
 		
 
-		//create and return address based on ip and port
-		InetSocketAddress toReturn = new InetSocketAddress(finalIp.toString(),port);
+		//create and return address based on ip and port (incremented)
+		InetSocketAddress toReturn =
+			new InetSocketAddress(finalIp.toString(),(port + portIncrement));
 		
 		return toReturn;
 	}

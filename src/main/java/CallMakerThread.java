@@ -5,6 +5,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 
 import java.net.ConnectException;
+import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -27,6 +28,7 @@ public class CallMakerThread extends Thread {
 
 	
 	private Socket sendSocket;
+	private DatagramSocket datagramSocket;
 	private DataInputStream inputStream;
 	private DataOutputStream outputStream;
 	
@@ -34,12 +36,16 @@ public class CallMakerThread extends Thread {
 	private DataSender sender;
 
 
-	public CallMakerThread(InetSocketAddress address, String recipientNumber) {
+	public CallMakerThread(
+	DatagramSocket datagramSocket,
+	InetSocketAddress address,
+	String recipientNumber) {
 
 		recipientAddress = address.getAddress().getHostAddress();
 		recipientPort = address.getPort();
 		this.recipientNumber = recipientNumber;
 		
+		this.datagramSocket = datagramSocket;
 		sendSocket = null;
 		receiver = null;
 		sender = null;
@@ -73,6 +79,11 @@ public class CallMakerThread extends Thread {
 		if(receiver != null) {
 			receiver.closeThread();
 			receiver = null;
+		}
+		
+		if(sender != null) {
+			sender.closeThread();
+			sender = null;
 		}
 	}
 	
@@ -124,9 +135,9 @@ public class CallMakerThread extends Thread {
 					});	
 					
 					//non-threaded sender
-					sender = new DataSender(outputStream);
+					sender = new DataSender(datagramSocket, this.recipientNumber);
 					//threaded receiver
-					receiver = new DataReceiver(inputStream);
+					receiver = new DataReceiver(datagramSocket);
 					
 					//begin receiving in threaded loop
 					receiver.start();

@@ -1,9 +1,12 @@
 import javafx.application.Platform;
 
 import java.io.DataOutputStream;
+import java.io.EOFException;
 import java.io.IOException;
 
-import java.io.EOFException;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetSocketAddress;
 import java.net.SocketException;
 
 import javax.sound.sampled.*;
@@ -24,17 +27,25 @@ public class DataSender extends Thread {
 	//dataline for recording audio
     private TargetDataLine targetDataLine;
 	
-	//stream for sending audio
-	private DataOutputStream outputStream;
+	//socket for sending udp packets
+	private DatagramSocket udpSendSocket;
+	
+	//address of recipient of data
+	private InetSocketAddress recipientAddress;
 	
 	
-	public DataSender(DataOutputStream stream) {
-		outputStream = stream;
+	public DataSender(DatagramSocket sendSocket, String otherNum) {
+		
+		udpSendSocket = sendSocket;
+		
+		//will be sending to a port 16 higher than other instances's base port
+		recipientAddress = IpTools.numberToInetSocketAddress(otherNum, 16);
+		
 		callFlag = DEFAULT_FLAG;
 		
 		//define the audio format
 		//sample rate, sample size, channels, signed, big-endian
-		audioFormat = new AudioFormat(16000, 8, 2, true, true);
+		audioFormat = new AudioFormat(16000, 16, 2, true, true);
 		
 		try {
 			//create dataline for recording audio
@@ -62,22 +73,26 @@ public class DataSender extends Thread {
 	public void send() {
 		try {
 			//buffer to contain audio bytes
-			byte[] audioBuffer = new byte[1024];
+			byte[] audioBuffer = new byte[512];
 		
 			//open data line to record audio
 			targetDataLine.open(audioFormat);
 			targetDataLine.start();
+			
+			System.out.println("sending audio:");
 			
 			//handle call
 			while(callFlag != CLOSE_FLAG) {
 
 				//receive audio from dataLine (mic) in real time
 				targetDataLine.read(audioBuffer, 0, audioBuffer.length);
+				
+				//create packet with audio data
+				DatagramPacket toSend =
+					new DatagramPacket(audioBuffer, audioBuffer.length, recipientAddress);
 
 				//send data
-				outputStream.write(audioBuffer);
-				
-				System.out.println("sending audio:");
+				udpSendSocket.send(toSend);
 			}
 		
 		} catch (Exception ex) {

@@ -1,10 +1,13 @@
 import javafx.application.Platform;
 
 import java.io.DataInputStream;
+import java.io.EOFException;
 import java.io.IOException;
 
-import java.io.EOFException;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
 import java.net.SocketException;
+import java.net.SocketTimeoutException;
 
 import javax.sound.sampled.*;
 
@@ -24,17 +27,19 @@ public class DataReceiver extends Thread {
 	//dataline for playing audio
     private SourceDataLine sourceDataLine;
 	
-	//stream for receiving audio
-	private DataInputStream inputStream;
+	//socket for receiving udp packets
+	private DatagramSocket udpReceiveSocket;
 	
 
-	public DataReceiver(DataInputStream stream) {
-		inputStream = stream;
+	public DataReceiver(DatagramSocket recSocket) {
+		
+		udpReceiveSocket = recSocket;
+
 		callFlag = DEFAULT_FLAG;
 		
 		//define the audio format
 		//sample rate, sample size, channels, signed, big-endian
-		audioFormat = new AudioFormat(16000, 8, 2, true, true);
+		audioFormat = new AudioFormat(16000, 16, 2, true, true);
 		
 		try {
 			//create dataline for playing audio
@@ -62,24 +67,33 @@ public class DataReceiver extends Thread {
 	public void receive() {
 		try {	
 			//buffer to contain audio bytes
-			byte[] audioBuffer = new byte[1024];
+			byte[] audioBuffer = new byte[512];
 			
 			//open dataline to play audio
 			sourceDataLine.open(audioFormat);
 			sourceDataLine.start();
 			
-			//read first part of audio data into audioBuffer
-			int bytesRead = inputStream.read(audioBuffer);
+			int timeoutStreak = 0;
+			
+			System.out.println("receiving audio:");
 
-			//handle call, if closed or bytes read goes below zero, stop call
-			while(!(callFlag == CLOSE_FLAG || bytesRead <= 0)) {
-				//play audio through speakers
-				sourceDataLine.write(audioBuffer, 0, audioBuffer.length);
-				
-				//read audio data into audioBuffer
-				bytesRead = inputStream.read(audioBuffer);
-				
-				System.out.println("receiving audio:");
+			//handle call, if closed or too many timeouts, stop receiver
+			while(!(callFlag == CLOSE_FLAG || timeoutStreak > 10)) {
+				try {
+					//packet for receiving audio over internet
+					DatagramPacket toReceive =
+						new DatagramPacket(audioBuffer, audioBuffer.length);
+					
+					//wait to get audio packet
+					udpReceiveSocket.receive(toReceive); 
+					
+					//play audio through speakers
+					sourceDataLine.write(audioBuffer, 0, audioBuffer.length);
+
+					timeoutStreak = 0;
+				} catch (SocketTimeoutException stex) {
+					timeoutStreak ++;
+				}
 			}
 		} catch (Exception ex) {
 			System.out.println("RECEIVE EXCEPTION OCCURRED:\n" + ex.getMessage());

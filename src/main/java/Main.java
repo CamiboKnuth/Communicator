@@ -16,6 +16,7 @@ import javafx.stage.WindowEvent;
 import java.io.IOException;
 
 import java.net.BindException;
+import java.net.DatagramSocket;
 import java.net.Inet4Address;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -25,7 +26,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /*
-TODO: Use UDP instead of TCP? Use socket timeout to end?
 TODO: Encryption?
 TODO: Video, change scene size?
 */
@@ -41,6 +41,7 @@ public class Main extends Application {
 	
 	//socket for receiving calls
 	static ServerSocket serverSocket;
+	static DatagramSocket datagramSocket;
 	
 	//phone number for this instance of the program
 	static String instanceNumber;
@@ -180,6 +181,7 @@ public class Main extends Application {
 					}
 					
 					serverSocket.close();
+					datagramSocket.close();
 					
 				} catch (IOException ioex) {
 					ioex.printStackTrace();
@@ -201,10 +203,12 @@ public class Main extends Application {
 
 			//loop until bound or if attempts surpass 16
 			while(!bound && bindPort < BASE_PORT + 16) {
-				//try to bind serverSocket.
+				//try to bind serverSocket and datagram socket.
 				try { 
 					serverSocket = new ServerSocket(bindPort);
 					serverSocket.setSoTimeout(100);
+					datagramSocket = new DatagramSocket(bindPort + 16);
+					datagramSocket.setSoTimeout(100);
 					bound = true;
 
 				//if bind fails, bind to next port
@@ -247,7 +251,7 @@ public class Main extends Application {
 
 					//convert number to address
 					InetSocketAddress recipientAddress =
-						IpTools.numberToInetSocketAddress(recipient);
+						IpTools.numberToInetSocketAddress(recipient, 0);
 					
 					//if call recipient is not this instance
 					if (!IpTools.isOwnAddress(recipientAddress)) {
@@ -259,7 +263,7 @@ public class Main extends Application {
 							callHandler = null;
 							
 							//start callMaker to contact recipient
-							callMaker = new CallMakerThread(recipientAddress, recipient);
+							callMaker = new CallMakerThread(datagramSocket, recipientAddress, recipient);
 							callMaker.start();
 
 							//show call in process screen
@@ -416,7 +420,7 @@ public class Main extends Application {
 
 		
 		//create and start socket thread for reception of calls
-		callHandler = new CallHandlerThread(serverSocket);
+		callHandler = new CallHandlerThread(serverSocket, datagramSocket);
 		callHandler.start();
 
 		

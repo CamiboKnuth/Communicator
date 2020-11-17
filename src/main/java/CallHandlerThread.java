@@ -6,6 +6,7 @@ import java.io.IOException;
 
 import java.lang.InterruptedException;
 
+import java.net.DatagramSocket;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
@@ -27,6 +28,7 @@ public class CallHandlerThread extends Thread {
 	private final int RING_TIME_SECONDS = 15;
 	
 	private ServerSocket serverSocket;
+	private DatagramSocket datagramSocket;
 	private volatile Socket receiverSocket;
 	
 	private DataInputStream inputStream;
@@ -36,9 +38,10 @@ public class CallHandlerThread extends Thread {
 	private DataSender sender;
 
 
-	public CallHandlerThread(ServerSocket serverSocket) {
+	public CallHandlerThread(ServerSocket serverSocket, DatagramSocket datagramSocket) {
 		
 		this.serverSocket = serverSocket;
+		this.datagramSocket = datagramSocket;
 		
 		receiver = null;
 		sender = null;
@@ -58,7 +61,6 @@ public class CallHandlerThread extends Thread {
 	//set thread flag to closed, then close streams and sockets
 	public void closeThread() throws IOException {
 		callFlag = CLOSE_FLAG;
-		callFlag = CLOSE_FLAG;
 		
 		if(receiverSocket != null) {
 			receiverSocket.close();
@@ -74,6 +76,10 @@ public class CallHandlerThread extends Thread {
 		
 		if(sender != null) {
 			sender.closeThread();
+		}
+		
+		if(receiver != null) {
+			receiver.closeThread();
 		}
 	}
 	
@@ -151,15 +157,16 @@ public class CallHandlerThread extends Thread {
 					});
 					
 					//non-threaded receiver
-					receiver = new DataReceiver(inputStream);
+					receiver = new DataReceiver(datagramSocket);
 					//threaded sender
-					sender = new DataSender(outputStream);
+					sender = new DataSender(datagramSocket, number);
 					
 					//begin sending in threaded loop
 					sender.start();
 					
 					//begin receiving in non-threaded loop
-					receiver.receive();					
+					receiver.receive();		
+					
 				//if this user rejects the call
 				} else if (callFlag == REJECT_FLAG){
 					outputStream.writeUTF("REJ");
