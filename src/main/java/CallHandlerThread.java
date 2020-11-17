@@ -6,12 +6,9 @@ import java.io.IOException;
 
 import java.lang.InterruptedException;
 
-
-import java.net.BindException;
-import java.net.Inet4Address;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.UnknownHostException;
+import java.net.SocketTimeoutException;
 
 
 public class CallHandlerThread extends Thread {
@@ -39,64 +36,15 @@ public class CallHandlerThread extends Thread {
 	private DataSender sender;
 
 
-	public CallHandlerThread() {
+	public CallHandlerThread(ServerSocket serverSocket) {
 		
-		boolean bound = false;
+		this.serverSocket = serverSocket;
 		
-		try {
-			//start binding attempts at base port
-			Main.bindPort = Main.BASE_PORT;
+		receiver = null;
+		sender = null;
+		receiverSocket = null;
 
-			//loop until bound or if attempts surpass 16
-			while(!bound && Main.bindPort < Main.BASE_PORT + 16) {
-				//try to bind serverSocket.
-				try { 
-					serverSocket = new ServerSocket(Main.bindPort);
-					bound = true;
-
-				//if bind fails, bind to next port
-				} catch (BindException bex) {
-					Main.bindPort ++;
-				}
-			}
-		} catch (IOException ioex) {
-			ioex.printStackTrace();
-		}
-		
-		//if server bind success
-		if (bound) {
-			receiver = null;
-			sender = null;
-			receiverSocket = null;
-			
-			//local system ip to be indicated to user
-			String ip = "127.0.0.1";
-			try {
-				ip = Inet4Address.getLocalHost().getHostAddress();
-			} catch (UnknownHostException uhex) {
-				uhex.printStackTrace();
-			}
-			
-			//string must be final to be used in lambda expression below
-			final String finalIp = ip;
-			
-			//show address to user
-			Platform.runLater(()->{
-				Main.setDisplayIp(finalIp);
-			});
-			
-			callFlag = DEFAULT_FLAG;
-	
-		//if server bind failed
-		} else {
-			System.out.println("ERROR: SERVER BIND FAILED,"
-				+ " CLOSE OTHER INSTANCES OF PROGRAM");
-			
-			//indicate that no dedicated port has been found
-			Main.bindPort = -1;
-				
-			callFlag = CLOSE_FLAG;
-		}
+		callFlag = DEFAULT_FLAG;
 	}
 	
 	public void acceptCall() {
@@ -110,6 +58,11 @@ public class CallHandlerThread extends Thread {
 	//set thread flag to closed, then close streams and sockets
 	public void closeThread() throws IOException {
 		callFlag = CLOSE_FLAG;
+		callFlag = CLOSE_FLAG;
+		
+		if(receiverSocket != null) {
+			receiverSocket.close();
+		}
 		
 		if(outputStream != null) {
 			outputStream.close();
@@ -122,14 +75,6 @@ public class CallHandlerThread extends Thread {
 		if(sender != null) {
 			sender.closeThread();
 		}
-		
-		if(receiverSocket != null) {
-			receiverSocket.close();
-		}
-		
-		if (serverSocket != null) {
-			serverSocket.close();
-		}
 	}
 	
 	public void run() {
@@ -139,20 +84,27 @@ public class CallHandlerThread extends Thread {
 			try {
 		
 				//wait for connection to be accepted (call made by another user)
-				System.out.println("waiting for call");
 				receiverSocket = serverSocket.accept();
+				String inNum = "";
+				
+				System.out.println("receiving call...");
 				
 		
 				//ensure flag is still default after accepting from serverSocket
 				if (callFlag == DEFAULT_FLAG) {
 					
 					outputStream = new DataOutputStream(receiverSocket.getOutputStream());
-					inputStream = null;
+					inputStream = new DataInputStream(receiverSocket.getInputStream());
+					
+					//receive other user's instance number
+					inNum = inputStream.readUTF();
+					
+					//variables in lambda must be final
+					final String number = inNum;
 					
 					//show options to user
 					Platform.runLater(()->{
-						Main.showReceivingScreen(
-							receiverSocket.getRemoteSocketAddress().toString());
+						Main.showReceivingScreen(number);
 					});
 				//if flag is not default after accepting from serverSocket, error has occured
 				} else {
@@ -187,17 +139,18 @@ public class CallHandlerThread extends Thread {
 				
 				//if this user accepts the call
 				if(callFlag == ACCEPT_FLAG) {
+					//send accept message to other user
 					outputStream.writeUTF("ACC");
+					
+					//variables in lambda must be final
+					final String number = inNum;
 					
 					//show in call screen on main view
 					Platform.runLater(()->{
-						Main.showInCallScreen(
-							receiverSocket.getRemoteSocketAddress().toString());
+						Main.showInCallScreen(number);
 					});
 					
-					inputStream = new DataInputStream(receiverSocket.getInputStream());
-					
-					//static receiver
+					//non-threaded receiver
 					receiver = new DataReceiver(inputStream);
 					//threaded sender
 					sender = new DataSender(outputStream);
@@ -238,6 +191,8 @@ public class CallHandlerThread extends Thread {
 				if(outputStream != null) {
 					outputStream.close();
 				}
+
+			} catch (SocketTimeoutException stex) {
 
 			} catch (IOException ioex) {
 				System.out.println("CAllHANDLER EXCEPTION OCCURRED:\n"

@@ -15,7 +15,11 @@ import javafx.stage.WindowEvent;
 
 import java.io.IOException;
 
+import java.net.BindException;
+import java.net.Inet4Address;
 import java.net.InetSocketAddress;
+import java.net.ServerSocket;
+import java.net.UnknownHostException;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -30,10 +34,16 @@ TODO: Video, change scene size?
 public class Main extends Application {
 	
 	//starting point for binding server socket
-	final static int BASE_PORT = 9980;
+	final static int BASE_PORT = 9900;
 	
 	//actual value to which server socket will be bound
 	static int bindPort;
+	
+	//socket for receiving calls
+	static ServerSocket serverSocket;
+	
+	//phone number for this instance of the program
+	static String instanceNumber;
 	
 	
 	//thread with socket for receiving calls
@@ -43,16 +53,10 @@ public class Main extends Application {
 	//pane for showing nodes on screen
 	static GridPane gridPane;
 	
-	//universal back button to return to default screen
-	static Button backButton;
-
 
 	//default screen nodes
 	static Label messageBanner;
 	static Label yourIp;
-	static Button makeCallButton;
-	
-	//make call screen nodes
 	static Button callButton;
 	static Label ipCallMessage;
 	static TextField ipCallRecipient;
@@ -71,7 +75,7 @@ public class Main extends Application {
 	static Button endCallButton;
 
 
-	public static void main(String[] args) {		
+	public static void main(String[] args) {	
 		launch(args);
 	}
 	
@@ -88,28 +92,14 @@ public class Main extends Application {
 		gridPane.setHgap(10);
 		gridPane.setVgap(10);
 		gridPane.setAlignment(Pos.CENTER);		
-		
-
-		//create back button
-		backButton = new Button("Back");
-		backButton.setMinWidth(120);
-		backButton.setMaxWidth(120);
-		backButton.setStyle("-fx-font-size: 1.2em; -fx-font-weight: bold;"
-			+ "-fx-color: #CCCCCC; -fx-focus-color: transparent; -fx-faint-focus-color: transparent;");
-
-		
+				
 		//default screen nodes init
 		messageBanner = new Label("");
 		messageBanner.setStyle("-fx-font-size: 1.5em; -fx-font-weight: bold; -fx-color: #555555;");
 		
 		yourIp = new Label("");
 		yourIp.setStyle("-fx-font-size: 1.5em; -fx-font-weight: bold; -fx-color: #555555;");
-		
-		makeCallButton = new Button("Make Call");
-		makeCallButton.setMinSize(120, 60);
-		makeCallButton.setMaxSize(120, 60);
-		makeCallButton.setStyle("-fx-font-size: 1.5em; -fx-font-weight: bold;"
-			+ "-fx-color: #CCCCCC; -fx-focus-color: black; -fx-faint-focus-color: transparent;");
+
 	
 		
 		//make call screen nodes init
@@ -165,10 +155,11 @@ public class Main extends Application {
 		//add grid to base of scene
 		base.getChildren().add(gridPane);
 		//create scene with addon, width, height
-		Scene scene = new Scene(base, 400, 600);
+		Scene scene = new Scene(base, 350, 550);
 		
 		//set and show the scene
 		stage.setScene(scene);
+		stage.setResizable(false);
 		stage.show();
 		
 		//determine what happens on window close
@@ -188,6 +179,8 @@ public class Main extends Application {
 						callMaker = null;
 					}
 					
+					serverSocket.close();
+					
 				} catch (IOException ioex) {
 					ioex.printStackTrace();
 				}
@@ -198,44 +191,50 @@ public class Main extends Application {
 			}
 		});
 		
+		
+		//section for binding server socket to a port
+		//socket stays bound for the duration of execution
+		try {
+			boolean bound = false;
+			//start binding attempts at base port
+			bindPort = BASE_PORT;
+
+			//loop until bound or if attempts surpass 16
+			while(!bound && bindPort < BASE_PORT + 16) {
+				//try to bind serverSocket.
+				try { 
+					serverSocket = new ServerSocket(bindPort);
+					serverSocket.setSoTimeout(100);
+					bound = true;
+
+				//if bind fails, bind to next port
+				} catch (BindException bex) {
+					bindPort ++;
+				}
+			}
+			
+			
+			if(!bound) {
+				System.out.println("SERVER BIND FAILED, CLOSE OTHER INSTANCES.");
+			}
+			
+		} catch (IOException ioex) {
+			ioex.printStackTrace();
+		}
+		
 		//callHandler and Maker start null
 		callHandler = null;
 		callMaker = null;
+		
+		//show users number on screen
+		setDisplayIp();
 		
 		//start off at default screen
 		showDefaultScreen("");
 	}
 	
 	public static void initButtonActions() {
-		
-/*
-		//set action for "back" button
-		backButton.setOnAction(new EventHandler<ActionEvent>() {
-			@Override
-			public void handle(ActionEvent ev) {
-				showDefaultScreen("");
-			}
-		});	
-	
-
-		//set action for "make call" button
-		makeCallButton.setOnAction(new EventHandler<ActionEvent>() {
-			@Override
-			public void handle(ActionEvent ev) {
-				try {
-					//close callHandler temporarily
-					callHandler.closeThread();
-					callHandler = null;
-					
-					//show options for making call
-					showMakeCallScreen();
-				} catch (IOException ioex) {
-					ioex.printStackTrace();
-				}
-			}
-		});
-*/
-		
+				
 		//set action for "call" button
 		callButton.setOnAction(new EventHandler<ActionEvent>() {
 			@Override
@@ -256,10 +255,11 @@ public class Main extends Application {
 						try {
 							//close callHandler temporarily
 							callHandler.closeThread();
+							callHandler.join();
 							callHandler = null;
 							
 							//start callMaker to contact recipient
-							callMaker = new CallMakerThread(recipientAddress);
+							callMaker = new CallMakerThread(recipientAddress, recipient);
 							callMaker.start();
 
 							//show call in process screen
@@ -268,7 +268,11 @@ public class Main extends Application {
 						} catch (IOException ioex) {
 							ioex.printStackTrace();
 							showDefaultScreen("Call Failed.");
+						} catch (InterruptedException intex) {
+							intex.printStackTrace();
+							showDefaultScreen("");
 						}
+						
 					} else {
 						ipCallMessage.setText("Cannot call yourself, try again:");
 					}
@@ -337,53 +341,89 @@ public class Main extends Application {
 		if(callMaker != null) {
 			try {
 				callMaker.closeThread();
+				callMaker.join();
 			} catch (IOException ioex) {
 				ioex.printStackTrace();
+			}  catch (InterruptedException intex) {
+				intex.printStackTrace();
 			}
 		}
+		
+		callMaker = null;
 		
 		//shut down callHandler thread
 		if(callHandler != null) {
 			try {
 				callHandler.closeThread();
-				callHandler = null;
+				callHandler.join();
 			} catch (IOException ioex) {
 				ioex.printStackTrace();
+			}  catch (InterruptedException intex) {
+				intex.printStackTrace();
 			}
 		}
+		
+		callHandler = null;
 		
 		//return to default screen
 		showDefaultScreen("Call Ended");		
 	}
 	
-	public static void setDisplayIp(String address) {
+	public static void setDisplayIp() {
 		
-		String myNumber = IpTools.addressAndPortToNumber(address, bindPort);
+		//local system ip to be indicated to user
+		String address = "127.0.0.1";
+		try {
+			address = Inet4Address.getLocalHost().getHostAddress();
+		} catch (UnknownHostException uhex) {
+			uhex.printStackTrace();
+		}
+
+		//get number from ip and port
+		instanceNumber = IpTools.addressAndPortToNumber(address, bindPort);
 		
 		//Indicate ip to user
-		yourIp.setText("Your number is:\n" + myNumber + "\n\nAwaiting call...");
+		yourIp.setText("Your number is:\n" + instanceNumber);
 	}
 	
 	public static void showDefaultScreen(String message) {
-		//open callHandlerThread if null
-		if(callHandler == null) {
-			//create and start socket thread for reception of calls
-			callHandler = new CallHandlerThread();
-			callHandler.start();
-		}
 		
 		//close any open callMakerThread
 		if(callMaker != null) {
 			try {
 				callMaker.closeThread();
+				callMaker.join();
 			} catch (IOException ioex) {
 				ioex.printStackTrace();
+			}  catch (InterruptedException intex) {
+				intex.printStackTrace();
 			}
 			callMaker = null;
 		}
+
+		//close any open callHandlerThread
+		if(callHandler != null) {
+			try {
+				callHandler.closeThread();
+				callHandler.join();
+			} catch (IOException ioex) {
+				ioex.printStackTrace();
+			}  catch (InterruptedException intex) {
+				intex.printStackTrace();
+			}
+			callHandler = null;
+		}		
+
+		
+		//create and start socket thread for reception of calls
+		callHandler = new CallHandlerThread(serverSocket);
+		callHandler.start();
+
 		
 		//determine what main screen banner will say
 		messageBanner.setText(message);
+		//determine what will display over number field
+		ipCallMessage.setText("Enter number to call:");
 		
 
 		//clear grid
@@ -391,53 +431,23 @@ public class Main extends Application {
 		
 
 		//add default screen elements to center of screen
-		gridPane.add(messageBanner, 0, 0);
-		gridPane.setHalignment(messageBanner, HPos.CENTER);
-		
-		gridPane.add(yourIp, 0, 3);	
+		gridPane.add(yourIp, 0, 0);	
 		gridPane.setHalignment(yourIp, HPos.CENTER);
-		
-		//gridPane.add(makeCallButton, 0, 10);
-		//gridPane.setHalignment(makeCallButton, HPos.CENTER);
-		
-		ipCallMessage.setText("Enter number to call:");
-		
-		//add call making screen elements to center of screen
-		gridPane.add(ipCallMessage, 0, 10);
+
+		gridPane.add(ipCallMessage, 0, 2);
 		gridPane.setHalignment(ipCallMessage, HPos.CENTER);
 		
 		ipCallRecipient.clear();
-		gridPane.add(ipCallRecipient, 0, 11);
+		gridPane.add(ipCallRecipient, 0, 3);
 		gridPane.setHalignment(ipCallRecipient, HPos.CENTER);
 		
-		gridPane.add(callButton, 0, 13);
-		gridPane.setHalignment(callButton, HPos.CENTER);
-	}
-	
-	/*
-	public static void showMakeCallScreen() {
-		
-		//clear grid
-		gridPane.getChildren().clear();
-		
-		ipCallMessage.setText("Enter number to call:");
-		
-		//add call making screen elements to center of screen
-		gridPane.add(ipCallMessage, 0, 10);
-		gridPane.setHalignment(ipCallMessage, HPos.CENTER);
-		
-		ipCallRecipient.clear();
-		gridPane.add(ipCallRecipient, 0, 11);
-		gridPane.setHalignment(ipCallRecipient, HPos.CENTER);
-		
-		gridPane.add(callButton, 0, 13);
+		gridPane.add(callButton, 0, 4);
 		gridPane.setHalignment(callButton, HPos.CENTER);
 		
-		//gridPane.add(backButton, 0, 10);
-		//gridPane.setHalignment(backButton, HPos.CENTER);
+		gridPane.add(messageBanner, 0, 6);
+		gridPane.setHalignment(messageBanner, HPos.CENTER);
 	}
-	*/
-	
+		
 	public static void showCallingScreen() {
 		//clear grid
 		gridPane.getChildren().clear();
@@ -452,18 +462,7 @@ public class Main extends Application {
 		gridPane.setHalignment(cancelCallButton, HPos.CENTER);
 	}
 	
-	public static void showReceivingScreen(String otherIp) {
-		//get port as string
-		String stringPort = otherIp.substring(otherIp.indexOf(':') + 1);
-
-		//separate IP from initial slash character and port number
-		otherIp = otherIp.substring(1,otherIp.indexOf(':'));
-		int port = Integer.valueOf(stringPort);
-		
-		//convert ip and port to number
-		String otherNum = IpTools.addressAndPortToNumber(otherIp, port);
-
-		
+	public static void showReceivingScreen(String otherNum) {
 		//clear grid
 		gridPane.getChildren().clear();
 		
@@ -480,18 +479,7 @@ public class Main extends Application {
 		gridPane.setHalignment(rejectCallButton, HPos.CENTER);		
 	}
 	
-	public static void showInCallScreen(String otherIp) {
-		//get port as string
-		String stringPort = otherIp.substring(otherIp.indexOf(':') + 1);
-
-		//separate IP from initial slash character and port number
-		otherIp = otherIp.substring(1,otherIp.indexOf(':'));
-		int port = Integer.valueOf(stringPort);
-		
-		//convert ip and port to number
-		String otherNum = IpTools.addressAndPortToNumber(otherIp, port);
-		
-		
+	public static void showInCallScreen(String otherNum) {
 		//clear grid
 		gridPane.getChildren().clear();
 		

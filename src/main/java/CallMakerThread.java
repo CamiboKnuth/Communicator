@@ -22,6 +22,7 @@ public class CallMakerThread extends Thread {
 	private final int CLOSE_FLAG = 1;
 	
 	private String recipientAddress;
+	private String recipientNumber;
 	private int recipientPort;
 
 	
@@ -33,10 +34,11 @@ public class CallMakerThread extends Thread {
 	private DataSender sender;
 
 
-	public CallMakerThread(InetSocketAddress address) {
+	public CallMakerThread(InetSocketAddress address, String recipientNumber) {
 
 		recipientAddress = address.getAddress().getHostAddress();
 		recipientPort = address.getPort();
+		this.recipientNumber = recipientNumber;
 		
 		sendSocket = null;
 		receiver = null;
@@ -49,20 +51,28 @@ public class CallMakerThread extends Thread {
 	public void closeThread() throws IOException {
 		callFlag = CLOSE_FLAG;
 		
+		if(sendSocket != null) {
+			try {
+				sendSocket.close();
+				sendSocket = null;
+			} catch (IOException ioex) {
+				System.out.println("ERROR: " + ioex.getMessage());
+			}
+		}
+		
 		if(inputStream != null) {
 			inputStream.close();
+			inputStream = null;
 		}
 		
 		if(outputStream != null) {
 			outputStream.close();
+			outputStream = null;
 		}
 		
 		if(receiver != null) {
 			receiver.closeThread();
-		}
-		
-		if(sendSocket != null) {
-			sendSocket.close();
+			receiver = null;
 		}
 	}
 	
@@ -73,17 +83,16 @@ public class CallMakerThread extends Thread {
 			try {
 		
 				//wait to connect to other user
-				sendSocket = new Socket(
-					recipientAddress,
-					recipientPort,
-					InetAddress.getLocalHost(),
-					Main.bindPort);
+				sendSocket = new Socket(recipientAddress, recipientPort);
 				
 				//set socket timeout to 2 seconds
 				sendSocket.setSoTimeout(2*1000);
 				
 				inputStream = new DataInputStream(sendSocket.getInputStream());
-				outputStream = null;
+				outputStream = new DataOutputStream(sendSocket.getOutputStream());
+
+				//send instance number so the other user can display
+				outputStream.writeUTF(Main.instanceNumber);
 				
 				//wait for other user to accept or reject
 				String in = inputStream.readUTF();
@@ -107,16 +116,14 @@ public class CallMakerThread extends Thread {
 				System.out.println("received: " + in);
 				
 				//if other user accepted call
-				if(in.equals("ACC")) {					
+				if(in.equals("ACC")) {
+					
 					//show in call screen on main view
 					Platform.runLater(()->{
-						Main.showInCallScreen(
-							sendSocket.getRemoteSocketAddress().toString());
+						Main.showInCallScreen(this.recipientNumber);
 					});	
-
-					outputStream = new DataOutputStream(sendSocket.getOutputStream());
 					
-					//static sender
+					//non-threaded sender
 					sender = new DataSender(outputStream);
 					//threaded receiver
 					receiver = new DataReceiver(inputStream);
@@ -149,20 +156,24 @@ public class CallMakerThread extends Thread {
 						Main.showDefaultScreen("Call failed due to disconnection.");
 					});					
 				}
-				
-				//close this thread
-				closeThread();
 			
 			} catch (IOException ioex) {
 				if(callFlag != CLOSE_FLAG) {
 					System.out.println("CALLMAKER EXCEPTION OCCURRED:\n" + ioex.getMessage());
+					ioex.printStackTrace();
 					
 					Platform.runLater(()->{
 						Main.showDefaultScreen("Call failed: connection not made.");
 					});
 					
-					callFlag = CLOSE_FLAG;
 				}
+			}
+
+			//close thread
+			try {
+				this.closeThread();
+			} catch (IOException ioex) {
+				System.out.println("ERROR: CALLMAKER CLOSE FAILED: " + ioex.getMessage());
 			}
 		}
 	}
