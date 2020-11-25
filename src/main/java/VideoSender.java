@@ -179,7 +179,6 @@ public class VideoSender extends Thread {
 				//show mirror of the captured image to this user
 				Platform.runLater(() -> {
 					if (!closeFlag) {
-						Main.setMirrorImageSize(100, 100);
 						Main.showMirrorImage(imageBytes);
 					}
 				});
@@ -188,7 +187,7 @@ public class VideoSender extends Thread {
 				//if video read failed, set mirror image size to 0
 				Platform.runLater(() -> {
 					if (!closeFlag) {
-						Main.setMirrorImageSize(0, 0);
+						Main.showNoCameraMirror();
 					}
 				});				
 			}

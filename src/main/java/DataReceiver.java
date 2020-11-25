@@ -177,17 +177,11 @@ public class DataReceiver extends Thread {
 							Timer.cancelReceiveTimer();
 							
 							//if just starting to get video packets...
-							if(!receivingVideo) {
-								//expand view for video
-								Platform.runLater(() -> {
-									if (callFlag != CLOSE_FLAG) {
-										Main.setReceivedImageSize(450, 300);
-									}
-								});								
-								
+							if(!receivingVideo) {								
 								receivingVideo = true;
 							}
 							
+							//store in new array to prevent changes during image showing
 							byte[] toShow = imageBytesBuffer;
 							
 							//show image
@@ -233,11 +227,20 @@ public class DataReceiver extends Thread {
 							//collapse video view
 							Platform.runLater(() -> {
 								if (callFlag != CLOSE_FLAG) {
-									Main.setReceivedImageSize(0, 0);
+									//Main.fitReceivedImageSize();//(350, 235);
+									Main.showNoVideoImage();
 								}
 							});	
 						}
 					}
+					
+					//resize image based on size of window
+					Platform.runLater(() -> {
+						if (callFlag != CLOSE_FLAG) {
+							Main.fitReceivedImageSize();
+						}
+					});				
+					
 					
 					timeoutStreak = 0;
 				} catch (SocketTimeoutException stex) {

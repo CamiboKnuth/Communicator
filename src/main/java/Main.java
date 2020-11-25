@@ -17,6 +17,8 @@ import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
 
 import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 
 import java.net.BindException;
@@ -25,6 +27,8 @@ import java.net.Inet4Address;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.UnknownHostException;
+import java.net.URISyntaxException;
+import java.net.URL;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -55,7 +59,8 @@ public class Main extends Application {
 	static CallHandlerThread callHandler;
 	static CallMakerThread callMaker;
 
-	//pane for showing nodes on screen
+	//for showing nodes on screen
+	static Stage stage;
 	static GridPane gridPane;
 	
 
@@ -80,6 +85,8 @@ public class Main extends Application {
 	static ImageView otherView;
 	static Label inCallWithIp;
 	static Button endCallButton;
+	static Image noCamImage;
+	static Image noVideoImage;
 
 
 	public static void main(String[] args) {	
@@ -88,11 +95,14 @@ public class Main extends Application {
 	
 	@Override
 	public void start(Stage stage) {
+		
+		this.stage = stage;
+		
 		//set title of the window
 		stage.setTitle("Communicator");
 		
 		//create base and grid for adding elements
-		StackPane base = new StackPane();
+		//StackPane base = new StackPane();
         gridPane = new GridPane();
 
 		//set alignment of grid
@@ -151,6 +161,9 @@ public class Main extends Application {
 		mirrorView = new ImageView();
 		mirrorView.setRotationAxis(Rotate.Y_AXIS);
 		mirrorView.setRotate(180);
+		mirrorView.setFitHeight(100);
+		mirrorView.setFitWidth(100);
+		mirrorView.setPreserveRatio(true);
 
 		otherView = new ImageView();
 		
@@ -160,15 +173,18 @@ public class Main extends Application {
 		endCallButton = new Button("End Call");
 		endCallButton.setStyle("-fx-font-size: 1.3em; -fx-font-weight: bold;"
 			+ "-fx-color: #CCCCCC; -fx-focus-color: transparent; -fx-faint-focus-color: transparent;");
+			
 		
+		//set images for no video and no camera
+		initImages();
 		
 		//set actions for the buttons
 		initButtonActions();
 		
 		//add grid to base of scene
-		base.getChildren().add(gridPane);
+		//base.getChildren().add(gridPane);
 		//create scene with addon, width, height
-		Scene scene = new Scene(base, 350, 550);
+		Scene scene = new Scene(gridPane, 350, 550);
 		
 		//set and show the scene
 		stage.setScene(scene);
@@ -247,6 +263,28 @@ public class Main extends Application {
 		
 		//start off at default screen
 		showDefaultScreen("");
+	}
+	
+	public static void initImages() {
+		try {
+			URL resource = Main.class.getClassLoader().getResource("nocamera.jpg");
+			File imgFile = new File(resource.toURI());
+			noCamImage = new Image(new FileInputStream(imgFile));
+		} catch (IOException ioex) {
+			ioex.printStackTrace();
+		} catch (URISyntaxException urex) {
+			urex.printStackTrace();
+		}
+		
+		try {
+			URL resource = Main.class.getClassLoader().getResource("novideo.jpg");
+			File imgFile = new File(resource.toURI());
+			noVideoImage = new Image(new FileInputStream(imgFile));
+		} catch (IOException ioex) {
+			ioex.printStackTrace();
+		} catch (URISyntaxException urex) {
+			urex.printStackTrace();
+		}		
 	}
 	
 	public static void initButtonActions() {
@@ -436,6 +474,12 @@ public class Main extends Application {
 			callHandler = null;
 		}		
 
+		//reset images on call screen
+		setMirrorImageSize(100,100);
+		setReceivedImageSize(350, 235);	
+		showNoCameraMirror();
+		showNoVideoImage();
+
 		
 		//create and start socket thread for reception of calls
 		callHandler = new CallHandlerThread(serverSocket, datagramSocket);
@@ -468,6 +512,12 @@ public class Main extends Application {
 		
 		gridPane.add(messageBanner, 0, 6);
 		gridPane.setHalignment(messageBanner, HPos.CENTER);
+		
+
+		//ensure that screen is reset and cannot be enlarged
+		stage.setWidth(350);
+		stage.setHeight(550);
+		stage.setResizable(false);
 	}
 		
 	public static void showCallingScreen() {
@@ -502,6 +552,12 @@ public class Main extends Application {
 	}
 	
 	public static void showInCallScreen(String otherNum) {
+		
+		//permite screen size to change
+		stage.setResizable(true);
+		stage.setMinHeight(550);
+		stage.setMinWidth(350);
+		
 		//clear grid
 		gridPane.getChildren().clear();
 		
@@ -521,27 +577,39 @@ public class Main extends Application {
 		gridPane.setHalignment(endCallButton, HPos.CENTER);	
 	}
 	
-	public static void setMirrorImageSize(int width, int height) {
-		mirrorView.setFitHeight(height);
-		mirrorView.setFitWidth(width);
-		mirrorView.setPreserveRatio(true);		
-	}
-	
 	public static void setReceivedImageSize(int width, int height) {
 		otherView.setFitHeight(height);
 		otherView.setFitWidth(width);
 		otherView.setPreserveRatio(true);		
 	}
 	
-	public static void showMirrorImage(byte[] toShow) {
-		Image image = new Image(new ByteArrayInputStream(toShow));
-		
-		mirrorView.setImage(image);
+	public static void fitReceivedImageSize() {
+		otherView.setFitHeight(stage.getHeight() - 100);
+		otherView.setFitWidth(stage.getHeight() - 200);
+		otherView.setPreserveRatio(true);		
 	}
 	
 	public static void showReceivedImage(byte[] toShow) {
 		Image image = new Image(new ByteArrayInputStream(toShow));
-
 		otherView.setImage(image);
+	}
+	
+	public static void showNoVideoImage() {
+		otherView.setImage(noVideoImage);
+	}
+
+	public static void setMirrorImageSize(int width, int height) {
+		mirrorView.setFitHeight(height);
+		mirrorView.setFitWidth(width);
+		mirrorView.setPreserveRatio(true);		
+	}	
+	
+	public static void showMirrorImage(byte[] toShow) {
+		Image image = new Image(new ByteArrayInputStream(toShow));
+		mirrorView.setImage(image);
+	}
+	
+	public static void showNoCameraMirror() {
+		mirrorView.setImage(noCamImage);
 	}
 }

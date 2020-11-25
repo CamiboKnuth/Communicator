@@ -4,6 +4,8 @@ import java.io.DataOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
 
+import java.lang.System;
+
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetSocketAddress;
@@ -82,7 +84,7 @@ public class DataSender extends Thread {
 			videoSender.execute();
 			
 			//buffer to contain audio bytes
-			byte[] audioBuffer = new byte[DataReceiver.RECEIVE_BUFFER_SIZE];
+			byte[] audioBuffer = new byte[DataReceiver.RECEIVE_BUFFER_SIZE - 4];
 		
 			//open data line to record audio
 			targetDataLine.open(audioFormat);
@@ -115,12 +117,15 @@ public class DataSender extends Thread {
 				//receive audio from dataLine (mic) in real time
 				targetDataLine.read(audioBuffer, 0, audioBuffer.length);
 				
-				//show other user this packet is audio
-				audioBuffer[0] = DataReceiver.AUDIO_PACKET_INDICATOR;
+				//append 4 bytes to beginning of buffer to indicate audio packet
+				//audio buffers must be multiples of 4
+				byte[] sendBuffer = new byte[DataReceiver.RECEIVE_BUFFER_SIZE];		
+				System.arraycopy(audioBuffer, 0, sendBuffer, 4, audioBuffer.length);
+				sendBuffer[0] = DataReceiver.AUDIO_PACKET_INDICATOR;
 				
 				//create packet with audio data
 				DatagramPacket toSend =
-					new DatagramPacket(audioBuffer, audioBuffer.length, recipientAddress);
+					new DatagramPacket(sendBuffer, sendBuffer.length, recipientAddress);
 					
 				Timer.waitForOtherReceive();
 

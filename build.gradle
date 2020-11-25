@@ -4,8 +4,8 @@ plugins {
 }
 
 javafx {
-    version = "13"
-    modules = [ 'javafx.controls', 'javafx.graphics', 'javafx.base' ]
+	version = "13"
+	modules = [ 'javafx.controls', 'javafx.graphics', 'javafx.base' ]
 }
 
 repositories {
@@ -20,7 +20,15 @@ repositories {
 }
 
 dependencies {
-    compile (name:'opencv-450', ext:'jar')
+	compile (name:'opencv-450', ext:'jar')
+}
+
+sourceSets {
+	main {
+		resources {
+			srcDirs= ["src/main/resources"]
+		}
+	}
 }
 
 mainClassName = 'Main'
