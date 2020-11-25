@@ -8,11 +8,15 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.StackPane;
+import javafx.scene.transform.Rotate;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 
 import java.net.BindException;
@@ -72,6 +76,8 @@ public class Main extends Application {
 	static Button rejectCallButton;
 	
 	//in call node
+	static ImageView mirrorView;
+	static ImageView otherView;
 	static Label inCallWithIp;
 	static Button endCallButton;
 
@@ -142,6 +148,12 @@ public class Main extends Application {
 		
 		
 		//in call screen node init
+		mirrorView = new ImageView();
+		mirrorView.setRotationAxis(Rotate.Y_AXIS);
+		mirrorView.setRotate(180);
+
+		otherView = new ImageView();
+		
 		inCallWithIp = new Label("Currently in call with:");
 		inCallWithIp.setStyle("-fx-font-size: 1.5em; -fx-font-weight: bold; -fx-color: #555555;");
 		
@@ -369,6 +381,12 @@ public class Main extends Application {
 		
 		callHandler = null;
 		
+		mirrorView = new ImageView();
+		mirrorView.setRotationAxis(Rotate.Y_AXIS);
+		mirrorView.setRotate(180);
+
+		otherView = new ImageView();
+		
 		//return to default screen
 		showDefaultScreen("Call Ended");		
 	}
@@ -490,9 +508,40 @@ public class Main extends Application {
 		inCallWithIp.setText("Currently in call with: \n" + otherNum);
 		
 		//add in call screen elements to center of screen
-		gridPane.add(inCallWithIp, 0, 0);
+		gridPane.add(mirrorView, 0, 0);
+		gridPane.setHalignment(mirrorView, HPos.CENTER);
+		
+		gridPane.add(otherView, 0, 1);
+		gridPane.setHalignment(otherView, HPos.CENTER);
+		
+		gridPane.add(inCallWithIp, 0, 2);
 		gridPane.setHalignment(inCallWithIp, HPos.CENTER);	
-		gridPane.add(endCallButton, 0, 4);
+		
+		gridPane.add(endCallButton, 0, 3);
 		gridPane.setHalignment(endCallButton, HPos.CENTER);	
+	}
+	
+	public static void setMirrorImageSize(int width, int height) {
+		mirrorView.setFitHeight(height);
+		mirrorView.setFitWidth(width);
+		mirrorView.setPreserveRatio(true);		
+	}
+	
+	public static void setReceivedImageSize(int width, int height) {
+		otherView.setFitHeight(height);
+		otherView.setFitWidth(width);
+		otherView.setPreserveRatio(true);		
+	}
+	
+	public static void showMirrorImage(byte[] toShow) {
+		Image image = new Image(new ByteArrayInputStream(toShow));
+		
+		mirrorView.setImage(image);
+	}
+	
+	public static void showReceivedImage(byte[] toShow) {
+		Image image = new Image(new ByteArrayInputStream(toShow));
+
+		otherView.setImage(image);
 	}
 }

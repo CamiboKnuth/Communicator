@@ -33,6 +33,8 @@ public class DataSender extends Thread {
 	//address of recipient of data
 	private InetSocketAddress recipientAddress;
 	
+	VideoSender videoSender;
+	
 	
 	public DataSender(DatagramSocket sendSocket, String otherNum) {
 		
@@ -54,11 +56,15 @@ public class DataSender extends Thread {
 		} catch (LineUnavailableException luex) {
 			System.out.println("ERROR: AUDIO LINE NOT AVAILABLE");
 		}
+		
+		videoSender = new VideoSender(sendSocket, recipientAddress);
 	}
 
 	//set call flag to closed and close dataline
 	public void closeThread() {
 		callFlag = CLOSE_FLAG;
+		
+		videoSender.closeThread();
 		
 		try {
 			targetDataLine.stop();
@@ -72,27 +78,59 @@ public class DataSender extends Thread {
 	//run sending loop in original thread
 	public void send() {
 		try {
+			
+			videoSender.execute();
+			
 			//buffer to contain audio bytes
-			byte[] audioBuffer = new byte[512];
+			byte[] audioBuffer = new byte[DataReceiver.RECEIVE_BUFFER_SIZE];
 		
 			//open data line to record audio
 			targetDataLine.open(audioFormat);
 			targetDataLine.start();
 			
+			int loopCount = 0;
+			
 			System.out.println("sending audio:");
 			
 			//handle call
 			while(callFlag != CLOSE_FLAG) {
+				
+				if (loopCount > 200) {
+					
+					//wait 20 milliseconds before sending timer packet
+					Timer.waitTwentyMillis();
+					
+					byte[] timerBytes = Timer.generateTimerPacketBytes();
+					
+					//create packet with timer data
+					DatagramPacket timerSend =
+						new DatagramPacket(timerBytes, timerBytes.length, recipientAddress);
+
+					//send timer data
+					udpSendSocket.send(timerSend);
+				
+					loopCount = 0;
+				}
 
 				//receive audio from dataLine (mic) in real time
 				targetDataLine.read(audioBuffer, 0, audioBuffer.length);
 				
+				//show other user this packet is audio
+				audioBuffer[0] = DataReceiver.AUDIO_PACKET_INDICATOR;
+				
 				//create packet with audio data
 				DatagramPacket toSend =
 					new DatagramPacket(audioBuffer, audioBuffer.length, recipientAddress);
+					
+				Timer.waitForOtherReceive();
 
 				//send data
 				udpSendSocket.send(toSend);
+				
+				//wait before sending next packet
+				Timer.waitForOtherReceive();
+				
+				loopCount ++;
 			}
 		
 		} catch (Exception ex) {
