@@ -59,7 +59,7 @@ public class DataSender extends Thread {
 			System.out.println("ERROR: AUDIO LINE NOT AVAILABLE");
 		}
 		
-		videoSender = new VideoSender(sendSocket, recipientAddress);
+		videoSender = VideoSender.createInstance(sendSocket, recipientAddress);
 	}
 
 	//set call flag to closed and close dataline
@@ -67,6 +67,7 @@ public class DataSender extends Thread {
 		callFlag = CLOSE_FLAG;
 		
 		videoSender.closeThread();
+		VideoSender.destroyInstance();
 		
 		try {
 			targetDataLine.stop();
@@ -80,8 +81,6 @@ public class DataSender extends Thread {
 	//run sending loop in original thread
 	public void send() {
 		try {
-			
-			videoSender.execute();
 			
 			//buffer to contain audio bytes
 			byte[] audioBuffer = new byte[DataReceiver.RECEIVE_BUFFER_SIZE - 4];

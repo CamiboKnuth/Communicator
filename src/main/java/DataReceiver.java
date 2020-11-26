@@ -215,6 +215,7 @@ public class DataReceiver extends Thread {
 						sourceDataLine.write(receivedData, 4, receivedData.length - 4);
 						
 					} else if (isTimerPacket(receivedData)) {
+						//alter values to wait in timer
 						Timer.loadOtherDelayBytes(receivedData);
 					}
 					

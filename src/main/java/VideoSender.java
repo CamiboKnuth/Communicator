@@ -38,6 +38,37 @@ import org.opencv.videoio.VideoCapture;
 	
 public class VideoSender extends Thread {
 	
+	//videosender uses singleton design pattern
+	private static VideoSender videoSender = null;
+	
+	//create single instance of class
+	public static VideoSender createInstance(DatagramSocket socket, InetSocketAddress recipient) { 
+		if (videoSender == null) {
+			videoSender = new VideoSender(socket, recipient); 
+		}
+
+		return videoSender; 
+	}
+	
+	public static VideoSender getInstance() {
+		return videoSender;
+	}
+	
+	//destroy the single instance of the class
+	public static void destroyInstance() {
+		if (videoSender != null) {
+			if (!videoSender.isClosed()) {
+				videoSender.closeThread();
+			}
+		}
+		
+		videoSender = null;
+	}
+	
+	
+	
+	
+	
 	private VideoCapture videoCapture;
 	private Mat matrix;
 	
@@ -48,40 +79,62 @@ public class VideoSender extends Thread {
 	
 	private ScheduledExecutorService executor;
 	
-	private volatile boolean closeFlag;
-
+	private volatile int camFlag;
 	
-	public VideoSender(DatagramSocket socket, InetSocketAddress recipient) {
+	//flag values for camera
+	private final int DEFAULT_FLAG = 0;
+	private final int CLOSE_FLAG = 1;
+	private final int RUNNING_FLAG = 2;
+	
+	private VideoSender(DatagramSocket socket, InetSocketAddress recipient) {
 		
 		udpSendSocket = socket;
 		recipientAddress = recipient;
 		
-		closeFlag = false;
+		camFlag = DEFAULT_FLAG;
 		
 		//load opencv libary
 		System.loadLibrary( Core.NATIVE_LIBRARY_NAME );
 		
+		executor = null;
+		videoCapture = null;
+	}
+	
+	public void startCamera() {
 		//open camera
 		videoCapture = new VideoCapture(0);
 		matrix = new Mat();
-	}
-	
-	public void execute() {
+		
 		//execute the run method every 35 milliseconds until stopped
 		executor = Executors.newSingleThreadScheduledExecutor();
-		executor.scheduleAtFixedRate(this, 0, 35, TimeUnit.MILLISECONDS);	
+		executor.scheduleAtFixedRate(this, 0, 35, TimeUnit.MILLISECONDS);
+		
+		camFlag = RUNNING_FLAG;
+	}
+	
+	public void stopCamera() {
+		if (executor != null) {
+			executor.shutdownNow();
+		}
+		if (videoCapture != null) {
+			videoCapture.release();	
+		}
+		
+		camFlag = DEFAULT_FLAG;
 	}
 	
 	public void closeThread() {
-		closeFlag = true;
-		executor.shutdownNow();
-		videoCapture.release();
+		camFlag = CLOSE_FLAG;
+		this.stopCamera();
 	}
 	
-	//first packet will have	
-	//36 byte header
-	//6 byte 0x81's, 30 byte length indicator
+	public boolean isClosed() {
+		return camFlag == CLOSE_FLAG;
+	}
 	
+	
+	//first packet will have a 36 byte header:
+	//6 byte 0x81's, then 30 byte length indicator
 	public void sendPacketList(byte[] toSend) throws IOException, UnknownHostException {
 		
 		byte[] currentBuffer = new byte[DataReceiver.RECEIVE_BUFFER_SIZE];
@@ -155,7 +208,7 @@ public class VideoSender extends Thread {
 
 	public void run() {
 		// If camera is opened
-		if(videoCapture.isOpened() && !closeFlag) {
+		if(videoCapture.isOpened() && camFlag != CLOSE_FLAG) {
 
 			// Reading the next video frame from the camera
 			if (videoCapture.read(matrix)) {
@@ -178,18 +231,26 @@ public class VideoSender extends Thread {
 				
 				//show mirror of the captured image to this user
 				Platform.runLater(() -> {
-					if (!closeFlag) {
+					if (camFlag != CLOSE_FLAG) {
 						Main.showMirrorImage(imageBytes);
 					}
 				});
 
+			//if video read failed
 			} else {
-				//if video read failed, set mirror image size to 0
-				Platform.runLater(() -> {
-					if (!closeFlag) {
-						Main.showNoCameraMirror();
-					}
-				});				
+				
+				//if camera was on, stop camera, show camera unavailable
+				if (camFlag == RUNNING_FLAG) {
+					Main.cameraOn = false;
+					stopCamera();
+					
+					Platform.runLater(() -> {
+						if (camFlag != CLOSE_FLAG) {
+							Main.showUnavailableCam();
+							Main.toggleCameraButton.setText("Start Camera");
+						}
+					});		
+				}
 			}
 		}
 	}				

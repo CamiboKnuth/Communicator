@@ -11,6 +11,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.transform.Rotate;
 import javafx.stage.Stage;
@@ -35,7 +36,6 @@ import java.util.regex.Pattern;
 
 /*
 TODO: Encryption?
-TODO: Video, change scene size?
 */
 
 
@@ -85,8 +85,13 @@ public class Main extends Application {
 	static ImageView otherView;
 	static Label inCallWithIp;
 	static Button endCallButton;
+	static Button toggleCameraButton;
 	static Image noCamImage;
 	static Image noVideoImage;
+	static Image cameraUnavailableImg;
+	
+	
+	static boolean cameraOn = false;
 
 
 	public static void main(String[] args) {	
@@ -172,6 +177,10 @@ public class Main extends Application {
 		
 		endCallButton = new Button("End Call");
 		endCallButton.setStyle("-fx-font-size: 1.3em; -fx-font-weight: bold;"
+			+ "-fx-color: #CCCCCC; -fx-focus-color: transparent; -fx-faint-focus-color: transparent;");
+			
+		toggleCameraButton = new Button("Start Camera");
+		toggleCameraButton.setStyle("-fx-font-size: 1.3em; -fx-font-weight: bold;"
 			+ "-fx-color: #CCCCCC; -fx-focus-color: transparent; -fx-faint-focus-color: transparent;");
 			
 		
@@ -284,7 +293,17 @@ public class Main extends Application {
 			ioex.printStackTrace();
 		} catch (URISyntaxException urex) {
 			urex.printStackTrace();
-		}		
+		}
+
+		try {
+			URL resource = Main.class.getClassLoader().getResource("cameraunavailable.jpg");
+			File imgFile = new File(resource.toURI());
+			cameraUnavailableImg = new Image(new FileInputStream(imgFile));
+		} catch (IOException ioex) {
+			ioex.printStackTrace();
+		} catch (URISyntaxException urex) {
+			urex.printStackTrace();
+		}
 	}
 	
 	public static void initButtonActions() {
@@ -388,6 +407,23 @@ public class Main extends Application {
 				endCallAction();
 			}
 		});
+		
+		//set action for toggle camera button
+		toggleCameraButton.setOnAction(new EventHandler<ActionEvent>() {
+			@Override
+			public void handle(ActionEvent ev) {
+				if(cameraOn) {
+					toggleCameraButton.setText("Start Camera");
+					showNoCameraMirror();
+					cameraOn = false;
+					VideoSender.getInstance().stopCamera();
+				} else {
+					toggleCameraButton.setText("Stop Camera");
+					cameraOn = true;
+					VideoSender.getInstance().startCamera();
+				}
+			}
+		});
 	}
 	
 	public static void endCallAction() {
@@ -448,6 +484,14 @@ public class Main extends Application {
 	
 	public static void showDefaultScreen(String message) {
 		
+		//prevent screen from being enlarged
+		stage.setResizable(false);
+		
+		//determine what main screen banner will say
+		messageBanner.setText(message);
+		//determine what will display over number field
+		ipCallMessage.setText("Enter number to call:");
+		
 		//close any open callMakerThread
 		if(callMaker != null) {
 			try {
@@ -472,7 +516,11 @@ public class Main extends Application {
 				intex.printStackTrace();
 			}
 			callHandler = null;
-		}		
+		}
+
+		//create and start socket thread for reception of calls
+		callHandler = new CallHandlerThread(serverSocket, datagramSocket);
+		callHandler.start();		
 
 		//reset images on call screen
 		setMirrorImageSize(100,100);
@@ -480,17 +528,9 @@ public class Main extends Application {
 		showNoCameraMirror();
 		showNoVideoImage();
 
-		
-		//create and start socket thread for reception of calls
-		callHandler = new CallHandlerThread(serverSocket, datagramSocket);
-		callHandler.start();
+		toggleCameraButton.setText("Start Camera");
+		cameraOn = false;
 
-		
-		//determine what main screen banner will say
-		messageBanner.setText(message);
-		//determine what will display over number field
-		ipCallMessage.setText("Enter number to call:");
-		
 
 		//clear grid
 		gridPane.getChildren().clear();		
@@ -514,10 +554,9 @@ public class Main extends Application {
 		gridPane.setHalignment(messageBanner, HPos.CENTER);
 		
 
-		//ensure that screen is reset and cannot be enlarged
+		//ensure that screen is reset
 		stage.setWidth(350);
 		stage.setHeight(550);
-		stage.setResizable(false);
 	}
 		
 	public static void showCallingScreen() {
@@ -553,7 +592,7 @@ public class Main extends Application {
 	
 	public static void showInCallScreen(String otherNum) {
 		
-		//permite screen size to change
+		//permit screen size to change
 		stage.setResizable(true);
 		stage.setMinHeight(550);
 		stage.setMinWidth(350);
@@ -572,9 +611,14 @@ public class Main extends Application {
 		
 		gridPane.add(inCallWithIp, 0, 2);
 		gridPane.setHalignment(inCallWithIp, HPos.CENTER);	
+
+		HBox hbox = new HBox();
+		hbox.setSpacing(30);
+		hbox.setAlignment(Pos.CENTER);
+		hbox.getChildren().addAll(endCallButton, toggleCameraButton);
 		
-		gridPane.add(endCallButton, 0, 3);
-		gridPane.setHalignment(endCallButton, HPos.CENTER);	
+		gridPane.add(hbox, 0, 3);
+		gridPane.setHalignment(hbox, HPos.CENTER);
 	}
 	
 	public static void setReceivedImageSize(int width, int height) {
@@ -585,7 +629,7 @@ public class Main extends Application {
 	
 	public static void fitReceivedImageSize() {
 		otherView.setFitHeight(stage.getHeight() - 100);
-		otherView.setFitWidth(stage.getHeight() - 200);
+		otherView.setFitWidth(stage.getHeight() - 150);
 		otherView.setPreserveRatio(true);		
 	}
 	
@@ -611,5 +655,9 @@ public class Main extends Application {
 	
 	public static void showNoCameraMirror() {
 		mirrorView.setImage(noCamImage);
+	}
+	
+	public static void showUnavailableCam() {
+		mirrorView.setImage(cameraUnavailableImg);	
 	}
 }
