@@ -119,6 +119,10 @@ public class Timer {
 			}
 		}
 		
+		for (int i = 61; i < timerBytes.length; i++) {
+			timerBytes[i] = 0;
+		}
+		
 		return timerBytes;
 	}
 	

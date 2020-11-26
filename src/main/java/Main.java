@@ -34,10 +34,6 @@ import java.net.URL;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/*
-TODO: Encryption?
-*/
-
 
 public class Main extends Application {
 	
@@ -94,7 +90,10 @@ public class Main extends Application {
 	static boolean cameraOn = false;
 
 
-	public static void main(String[] args) {	
+	public static void main(String[] args) throws Exception {
+		//create keys to use in asymmetric encryption
+		Encryptor.generateRsaKeys();
+		//show window to user
 		launch(args);
 	}
 	
@@ -414,9 +413,9 @@ public class Main extends Application {
 			public void handle(ActionEvent ev) {
 				if(cameraOn) {
 					toggleCameraButton.setText("Start Camera");
-					showNoCameraMirror();
 					cameraOn = false;
 					VideoSender.getInstance().stopCamera();
+					showNoCameraMirror();
 				} else {
 					toggleCameraButton.setText("Stop Camera");
 					cameraOn = true;

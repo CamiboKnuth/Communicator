@@ -170,20 +170,29 @@ public class VideoSender extends Thread {
 			
 			//when current packet is full, send and create new packet
 			if (!(currentBufferIndex < currentBuffer.length)) {
-				DatagramPacket currentPacket =
-					new DatagramPacket(currentBuffer, currentBuffer.length, recipientAddress);
-					
-				Timer.waitForOtherReceive();
-					
-				udpSendSocket.send(currentPacket);
 				
-				//wait for other user to load image or receive data
-				if(!sentFirst) {
-					Timer.waitForOtherLoad();
+				try {
+					//encrypt packet data before sending
+					byte[] encryptedBuffer = Encryptor.aesEncrypt(currentBuffer);
 					
-					sentFirst = true;
-				} else {
+					DatagramPacket currentPacket =
+						new DatagramPacket(encryptedBuffer, encryptedBuffer.length, recipientAddress);
+						
 					Timer.waitForOtherReceive();
+						
+					udpSendSocket.send(currentPacket);
+					
+					//wait for other user to load image or receive data
+					if(!sentFirst) {
+						Timer.waitForOtherLoad();
+						
+						sentFirst = true;
+					} else {
+						Timer.waitForOtherReceive();
+					}
+				
+				} catch (Exception ex) {
+					System.out.println("PACKET SEND ERROR: " + ex.getMessage());
 				}
 				
 				//create next packet to load data into
@@ -199,11 +208,18 @@ public class VideoSender extends Thread {
 			currentBufferIndex ++;
 		}
 		
-		//send any remaining bytes in a final packet
-		DatagramPacket finalPacket =
-			new DatagramPacket(currentBuffer, currentBufferIndex, recipientAddress);
-					
-		udpSendSocket.send(finalPacket);
+		try {
+			//encrypt packet data before sending
+			byte[] encryptedBuffer = Encryptor.aesEncrypt(currentBuffer);
+			
+			//send any remaining bytes in a final packet
+			DatagramPacket finalPacket =
+				new DatagramPacket(encryptedBuffer, encryptedBuffer.length, recipientAddress);
+						
+			udpSendSocket.send(finalPacket);
+		} catch (Exception ex) {
+			System.out.println("PACKET SEND ERROR: " + ex.getMessage());
+		}
 	}
 
 	public void run() {

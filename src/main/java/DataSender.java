@@ -101,14 +101,18 @@ public class DataSender extends Thread {
 					//wait 20 milliseconds before sending timer packet
 					Timer.waitTwentyMillis();
 					
-					byte[] timerBytes = Timer.generateTimerPacketBytes();
-					
-					//create packet with timer data
-					DatagramPacket timerSend =
-						new DatagramPacket(timerBytes, timerBytes.length, recipientAddress);
+					try {
+						byte[] timerBytes = Encryptor.aesEncrypt(Timer.generateTimerPacketBytes());
+						
+						//create packet with timer data
+						DatagramPacket timerSend =
+							new DatagramPacket(timerBytes, timerBytes.length, recipientAddress);
 
-					//send timer data
-					udpSendSocket.send(timerSend);
+						//send timer data
+						udpSendSocket.send(timerSend);
+					} catch (Exception ex) {
+						System.out.println("ENCRYPT EXCEPTION OCCURRED:\n" + ex.getMessage());
+					}
 				
 					loopCount = 0;
 				}
@@ -121,24 +125,38 @@ public class DataSender extends Thread {
 				byte[] sendBuffer = new byte[DataReceiver.RECEIVE_BUFFER_SIZE];		
 				System.arraycopy(audioBuffer, 0, sendBuffer, 4, audioBuffer.length);
 				sendBuffer[0] = DataReceiver.AUDIO_PACKET_INDICATOR;
+				sendBuffer[1] = DataReceiver.AUDIO_PACKET_INDICATOR;
+				sendBuffer[2] = DataReceiver.AUDIO_PACKET_INDICATOR;
+				sendBuffer[3] = DataReceiver.AUDIO_PACKET_INDICATOR;
 				
-				//create packet with audio data
-				DatagramPacket toSend =
-					new DatagramPacket(sendBuffer, sendBuffer.length, recipientAddress);
+				try {
+				
+					//encrypt packet data
+					byte[] encryptedSendBuffer = Encryptor.aesEncrypt(sendBuffer);
 					
-				Timer.waitForOtherReceive();
+					//create packet with audio data
+					DatagramPacket toSend =
+						new DatagramPacket(	encryptedSendBuffer,
+											encryptedSendBuffer.length,
+											recipientAddress);
+						
+					Timer.waitForOtherReceive();
 
-				//send data
-				udpSendSocket.send(toSend);
-				
-				//wait before sending next packet
-				Timer.waitForOtherReceive();
+					//send data
+					udpSendSocket.send(toSend);
+					
+					//wait before sending next packet
+					Timer.waitForOtherReceive();
+				} catch (Exception ex) {
+					System.out.println("ENCRYPT EXCEPTION OCCURRED:\n" + ex.getMessage());
+				}
 				
 				loopCount ++;
 			}
 		
 		} catch (Exception ex) {
 			System.out.println("SEND EXCEPTION OCCURRED:\n" + ex.getMessage());
+			ex.printStackTrace();
 		}
 		
 		closeThread();

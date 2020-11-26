@@ -21,7 +21,8 @@ public class DataReceiver extends Thread {
 	public static final byte AUDIO_PACKET_INDICATOR = (byte) 0xe7;
 	
 	//number of bytes received per packet
-	public static final int RECEIVE_BUFFER_SIZE = 500;
+	public static final int RECEIVE_BUFFER_SIZE = 448;
+	public static final int ENCRYPTION_OVERHEAD_LENGTH = 32;
 
 	
 	//flag for determining state of thread
@@ -136,7 +137,7 @@ public class DataReceiver extends Thread {
 	public void receive() {
 		try {	
 			//buffer to contain bytes from other user
-			byte[] receiveBuffer = new byte[RECEIVE_BUFFER_SIZE];
+			byte[] receiveBuffer = new byte[RECEIVE_BUFFER_SIZE + ENCRYPTION_OVERHEAD_LENGTH];
 			
 			//open dataline to play audio
 			sourceDataLine.open(audioFormat);
@@ -161,7 +162,15 @@ public class DataReceiver extends Thread {
 					//begin timing receive in nanoseconds
 					Timer.startReceiveTimer();
 					
-					byte[] receivedData = receivedPacket.getData();
+					
+					byte[] receivedData = new byte[10];
+					
+					try {
+						receivedData = Encryptor.aesDecrypt(receivedPacket.getData());
+					} catch (Exception ex) {
+						System.out.println("DECRYPT EXCEPTION OCCURRED:\n" + ex.getMessage());
+						//ex.printStackTrace();
+					}
 					
 					if (isImagePacket(receivedData)) {
 						

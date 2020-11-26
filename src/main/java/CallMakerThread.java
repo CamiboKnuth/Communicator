@@ -129,6 +129,17 @@ public class CallMakerThread extends Thread {
 				//if other user accepted call
 				if(in.equals("ACC")) {
 					
+					//receive rsa pubic key from other user
+					String publicKeyString = inputStream.readUTF();
+					
+					//create and set AES key
+					byte[] aesKey = Encryptor.generateAesKey();
+					Encryptor.setAesKey(aesKey);
+					byte[] encipheredAesKey = Encryptor.rsaEncrypt(aesKey, publicKeyString);
+					
+					//send encipheredAesKey
+					outputStream.write(encipheredAesKey, 0, encipheredAesKey.length);
+					
 					//show in call screen on main view
 					Platform.runLater(()->{
 						Main.showInCallScreen(this.recipientNumber);
@@ -168,7 +179,7 @@ public class CallMakerThread extends Thread {
 					});					
 				}
 			
-			} catch (IOException ioex) {
+			} catch (Exception ioex) {
 				if(callFlag != CLOSE_FLAG) {
 					System.out.println("CALLMAKER EXCEPTION OCCURRED:\n" + ioex.getMessage());
 					ioex.printStackTrace();

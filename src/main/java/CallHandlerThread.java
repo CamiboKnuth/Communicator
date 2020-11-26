@@ -148,6 +148,17 @@ public class CallHandlerThread extends Thread {
 					//send accept message to other user
 					outputStream.writeUTF("ACC");
 					
+					//send rsa public key to other user
+					outputStream.writeUTF(Encryptor.getRsaPublicKey());
+					
+					//receive aeskey
+					byte[] encipheredAesKey = new byte[256];
+					inputStream.read(encipheredAesKey, 0, encipheredAesKey.length);
+				
+					//set private key received from other user
+					byte[] receivedAesKey = Encryptor.rsaDecrypt(encipheredAesKey);
+					Encryptor.setAesKey(receivedAesKey);
+					
 					//variables in lambda must be final
 					final String number = inNum;
 					
@@ -201,7 +212,7 @@ public class CallHandlerThread extends Thread {
 
 			} catch (SocketTimeoutException stex) {
 
-			} catch (IOException ioex) {
+			} catch (Exception ioex) {
 				System.out.println("CAllHANDLER EXCEPTION OCCURRED:\n"
 					+ ioex.getMessage());
 					
