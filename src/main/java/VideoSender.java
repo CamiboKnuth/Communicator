@@ -120,6 +120,10 @@ public class VideoSender extends Thread {
 			videoCapture.release();	
 		}
 		
+		Platform.runLater(() -> {
+			Main.showNoCameraMirror();
+		});	
+		
 		camFlag = DEFAULT_FLAG;
 	}
 	

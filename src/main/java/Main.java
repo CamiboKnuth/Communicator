@@ -196,7 +196,6 @@ public class Main extends Application {
 		
 		//set and show the scene
 		stage.setScene(scene);
-		stage.setResizable(false);
 		stage.show();
 		
 		//determine what happens on window close
@@ -483,8 +482,10 @@ public class Main extends Application {
 	
 	public static void showDefaultScreen(String message) {
 		
-		//prevent screen from being enlarged
-		stage.setResizable(false);
+		//permit screen size to change
+		stage.setResizable(true);
+		stage.setMinWidth(350);
+		stage.setMinHeight(550);
 		
 		//determine what main screen banner will say
 		messageBanner.setText(message);
@@ -590,11 +591,6 @@ public class Main extends Application {
 	}
 	
 	public static void showInCallScreen(String otherNum) {
-		
-		//permit screen size to change
-		stage.setResizable(true);
-		stage.setMinHeight(550);
-		stage.setMinWidth(350);
 		
 		//clear grid
 		gridPane.getChildren().clear();
