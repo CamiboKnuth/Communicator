@@ -26,7 +26,7 @@ public class Encryptor {
 	private static PublicKey rsaPublicKey;
 	
 	//key for encrypting and decrypting AES messages
-	private static volatile byte[] aesCipherKey = null;;
+	private static volatile byte[] aesCipherKey = null;
 
 	
 	public static void generateRsaKeys() throws Exception {
