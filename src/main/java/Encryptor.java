@@ -25,9 +25,9 @@ public class Encryptor {
 	private static PrivateKey rsaPrivateKey;
 	private static PublicKey rsaPublicKey;
 	
-	//key and cipher suit for encrypting and decrypting AES messages
-	private static Cipher aesCipher;
-	private static SecretKeySpec aesKeySpec;
+	//key for encrypting and decrypting AES messages
+	private static volatile byte[] aesCipherKey = null;;
+
 	
 	public static void generateRsaKeys() throws Exception {
 		//generate public and private keys for RSA
@@ -54,11 +54,11 @@ public class Encryptor {
 		X509EncodedKeySpec rsaKeySpec =
 			new X509EncodedKeySpec(keyBytes);
 		KeyFactory keyFactory = KeyFactory.getInstance("RSA");
-		PublicKey rsaPublicKey = keyFactory.generatePublic(rsaKeySpec);
+		PublicKey publicKey = keyFactory.generatePublic(rsaKeySpec);
 
 		//initialize RSA cipher in encrypt mode
 		Cipher rsaCipher = Cipher.getInstance("RSA");
-		rsaCipher.init(Cipher.ENCRYPT_MODE, rsaPublicKey);
+		rsaCipher.init(Cipher.ENCRYPT_MODE, publicKey);
 
 		//encrypt bytes
 		byte[] encryptedBytes = rsaCipher.doFinal(bytesToEncrypt);
@@ -85,12 +85,19 @@ public class Encryptor {
 		return key;
 	}	
 
-	public static void setAesKey(byte[] aesKey) throws Exception {
-		aesCipher = Cipher.getInstance("AES/CBC/PKCS5PADDING");
-		aesKeySpec = new SecretKeySpec(aesKey, "AES");
+	public static void setAesKey(byte[] aesKey) {
+		aesCipherKey = aesKey;
+	}
+	
+	public static void resetAesKey() {
+		aesCipherKey = null;
 	}
 
 	public static synchronized byte[] aesEncrypt(byte[] bytesToEncrypt) throws Exception {
+		
+		//create cipher and keyspec
+		Cipher aesCipher = Cipher.getInstance("AES/CBC/PKCS5PADDING");
+		SecretKeySpec aesKeySpec = new SecretKeySpec(aesCipherKey, "AES");
 		
 		//generate random initialization vector (IV)
 		byte[] initVector = new byte[16];
@@ -114,8 +121,11 @@ public class Encryptor {
 		return fullBytes;
 	}
 	
-	
 	public static synchronized byte[] aesDecrypt(byte[] bytes) throws Exception {
+
+		//create cipher and keyspec
+		Cipher aesCipher = Cipher.getInstance("AES/CBC/PKCS5PADDING");
+		SecretKeySpec aesKeySpec = new SecretKeySpec(aesCipherKey, "AES");
 		
 		byte[] initVector = new byte[16];
 		byte[] bytesToDecrypt = new byte[bytes.length - 16];

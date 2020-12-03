@@ -165,11 +165,11 @@ public class DataReceiver extends Thread {
 					
 					byte[] receivedData = new byte[10];
 					
+					//decrypt data
 					try {
 						receivedData = Encryptor.aesDecrypt(receivedPacket.getData());
 					} catch (Exception ex) {
 						System.out.println("DECRYPT EXCEPTION OCCURRED:\n" + ex.getMessage());
-						//ex.printStackTrace();
 					}
 					
 					if (isImagePacket(receivedData)) {

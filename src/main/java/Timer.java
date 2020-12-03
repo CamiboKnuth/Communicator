@@ -14,10 +14,10 @@ public class Timer {
 	private static volatile long receiveTimerStart;
 	private static volatile long hundredMilTimerStart;
 	
-	private static volatile long otherLoadImageDelay = 15000000;
+	private static volatile long otherLoadImageDelay = 5000000;
 	private static volatile long otherReceiveDataDelay = 1000;
 	
-	private static volatile long myLoadImageDelay = 15000000;
+	private static volatile long myLoadImageDelay = 5000000;
 	private static volatile long myReceiveDataDelay = 1000;
 	
 
@@ -65,6 +65,10 @@ public class Timer {
 		return receiveTimerRunning;
 	}
 	
+	public static void resetTimer() {
+		otherLoadImageDelay = 5000000;
+		otherReceiveDataDelay = 1000;
+	}
 	
 
 	public static void startTwoHundredMillisecondTimer() {
@@ -164,5 +168,4 @@ public class Timer {
 		long twentyMil = 20000000;
 		while(System.nanoTime() - start < twentyMil);		
 	}
-	
 }

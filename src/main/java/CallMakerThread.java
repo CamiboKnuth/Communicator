@@ -78,6 +78,13 @@ public class CallMakerThread extends Thread {
 		
 		if(receiver != null) {
 			receiver.closeThread();
+			
+			try {
+				receiver.join();
+			} catch (InterruptedException intex) {
+				intex.printStackTrace();
+			}
+			
 			receiver = null;
 		}
 		

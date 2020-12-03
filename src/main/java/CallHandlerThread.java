@@ -76,6 +76,12 @@ public class CallHandlerThread extends Thread {
 		
 		if(sender != null) {
 			sender.closeThread();
+
+			try {
+				sender.join();
+			} catch (InterruptedException intex) {
+				intex.printStackTrace();
+			}
 		}
 		
 		if(receiver != null) {
@@ -158,7 +164,7 @@ public class CallHandlerThread extends Thread {
 					//set private key received from other user
 					byte[] receivedAesKey = Encryptor.rsaDecrypt(encipheredAesKey);
 					Encryptor.setAesKey(receivedAesKey);
-					
+
 					//variables in lambda must be final
 					final String number = inNum;
 					

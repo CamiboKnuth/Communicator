@@ -19,8 +19,11 @@ import javafx.stage.WindowEvent;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
-import java.io.FileInputStream;
+import java.io.InputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+
+import java.lang.UnsatisfiedLinkError;
 
 import java.net.BindException;
 import java.net.DatagramSocket;
@@ -31,8 +34,13 @@ import java.net.UnknownHostException;
 import java.net.URISyntaxException;
 import java.net.URL;
 
+import java.nio.file.StandardCopyOption;
+import java.nio.file.Files;
+
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import org.opencv.core.Core;
 
 
 public class Main extends Application {
@@ -90,9 +98,25 @@ public class Main extends Application {
 	static boolean cameraOn = false;
 
 
-	public static void main(String[] args) throws Exception {
+	public static void startApp(String[] args) throws Exception {
 		//create keys to use in asymmetric encryption
 		Encryptor.generateRsaKeys();
+		
+		//load opencv library to record with webcam
+		try {
+			InputStream in = Main.class.getClassLoader().getResourceAsStream(Core.NATIVE_LIBRARY_NAME + ".dll");
+					
+			File tempFile = File.createTempFile("OpenCvDll", ".dll");
+			tempFile.deleteOnExit();
+
+			Files.copy(in, tempFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+
+			System.load(tempFile.toString());		
+			
+		} catch (UnsatisfiedLinkError ulex) {
+			System.out.println("VIDEO LIBRARY UNAVAILABLE: " + ulex.getMessage());
+		}
+		
 		//show window to user
 		launch(args);
 	}
@@ -188,9 +212,7 @@ public class Main extends Application {
 		
 		//set actions for the buttons
 		initButtonActions();
-		
-		//add grid to base of scene
-		//base.getChildren().add(gridPane);
+
 		//create scene with addon, width, height
 		Scene scene = new Scene(gridPane, 350, 550);
 		
@@ -273,35 +295,10 @@ public class Main extends Application {
 	}
 	
 	public static void initImages() {
-		try {
-			URL resource = Main.class.getClassLoader().getResource("nocamera.jpg");
-			File imgFile = new File(resource.toURI());
-			noCamImage = new Image(new FileInputStream(imgFile));
-		} catch (IOException ioex) {
-			ioex.printStackTrace();
-		} catch (URISyntaxException urex) {
-			urex.printStackTrace();
-		}
-		
-		try {
-			URL resource = Main.class.getClassLoader().getResource("novideo.jpg");
-			File imgFile = new File(resource.toURI());
-			noVideoImage = new Image(new FileInputStream(imgFile));
-		} catch (IOException ioex) {
-			ioex.printStackTrace();
-		} catch (URISyntaxException urex) {
-			urex.printStackTrace();
-		}
 
-		try {
-			URL resource = Main.class.getClassLoader().getResource("cameraunavailable.jpg");
-			File imgFile = new File(resource.toURI());
-			cameraUnavailableImg = new Image(new FileInputStream(imgFile));
-		} catch (IOException ioex) {
-			ioex.printStackTrace();
-		} catch (URISyntaxException urex) {
-			urex.printStackTrace();
-		}
+		noCamImage = new Image(Main.class.getClassLoader().getResourceAsStream("nocamera.jpg"));
+		noVideoImage = new Image(Main.class.getClassLoader().getResourceAsStream("novideo.jpg"));
+		cameraUnavailableImg = new Image(Main.class.getClassLoader().getResourceAsStream("cameraunavailable.jpg"));
 	}
 	
 	public static void initButtonActions() {
@@ -458,6 +455,9 @@ public class Main extends Application {
 		mirrorView.setRotate(180);
 
 		otherView = new ImageView();
+		
+		Timer.resetTimer();
+		Encryptor.resetAesKey();
 		
 		//return to default screen
 		showDefaultScreen("Call Ended");		

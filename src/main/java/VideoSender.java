@@ -28,7 +28,7 @@ import javafx.scene.image.ImageView;
 import javafx.scene.transform.Rotate;
 import javafx.stage.Stage;
 
-import org.opencv.core.Core;
+//import org.opencv.core.Core;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfByte;
 import org.opencv.imgcodecs.Imgcodecs;
@@ -92,9 +92,6 @@ public class VideoSender extends Thread {
 		recipientAddress = recipient;
 		
 		camFlag = DEFAULT_FLAG;
-		
-		//load opencv libary
-		System.loadLibrary( Core.NATIVE_LIBRARY_NAME );
 		
 		executor = null;
 		videoCapture = null;
