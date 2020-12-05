@@ -1,2 +1,2 @@
 # Communicator
-TCP-based java voice communicator
+One-to-one encrypted java voice and video communicator
